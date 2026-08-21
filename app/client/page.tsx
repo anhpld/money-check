@@ -29,7 +29,7 @@ export default async function ClientPage() {
       <main className="client-main">
         <section className="client-hero">
           <p className="client-kicker">QUỸ BÓNG ĐÁ</p>
-          <h1>Chọn tên của bạn</h1>
+          <h1>FC ĐÔNG ĐÔ</h1>
           <p>Xem những buổi còn nợ và thanh toán một lần thật nhanh.</p>
         </section>
 

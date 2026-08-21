@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quản lý thanh toán",
+  title: "FC ĐÔNG ĐÔ",
   description: "Quản lý người dùng và các khoản thanh toán tập trung.",
 };
 
