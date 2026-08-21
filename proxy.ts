@@ -1,6 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_SESSION_COOKIE, isAdminSessionValid } from "@/lib/admin-auth";
 
+function publicUrl(request: NextRequest, path: string) {
+  const configuredOrigin = process.env.APP_URL?.trim();
+  if (configuredOrigin) return new URL(path, configuredOrigin);
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host") || request.nextUrl.host;
+  const protocol = forwardedProto || request.nextUrl.protocol.replace(":", "");
+  return new URL(path, `${protocol}://${host}`);
+}
+
+function externalRedirect(request: NextRequest, location: string) {
+  return NextResponse.redirect(publicUrl(request, location), 307);
+}
+
 function isPublicPath(pathname: string) {
   return pathname === "/login"
     || pathname === "/client"
@@ -16,19 +31,19 @@ export function proxy(request: NextRequest) {
   const authenticated = isAdminSessionValid(request.cookies.get(ADMIN_SESSION_COOKIE)?.value);
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/client", request.url));
+    return externalRedirect(request, "/client");
   }
 
   if (pathname === "/collections" || pathname.startsWith("/collections/")) {
-    return NextResponse.redirect(new URL(`/admin${pathname}${search}`, request.url));
+    return externalRedirect(request, `/admin${pathname}${search}`);
   }
 
   if (pathname === "/transactions" || pathname.startsWith("/transactions/")) {
-    return NextResponse.redirect(new URL(`/admin${pathname}${search}`, request.url));
+    return externalRedirect(request, `/admin${pathname}${search}`);
   }
 
   if (pathname === "/login" && authenticated) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return externalRedirect(request, "/admin");
   }
 
   if (isPublicPath(pathname)) return NextResponse.next();
@@ -37,9 +52,10 @@ export function proxy(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ success: false, error: "Chưa đăng nhập." }, { status: 401 });
     }
-    const loginUrl = new URL("/login", request.url);
-    if (request.method === "GET" || request.method === "HEAD") loginUrl.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
+    const searchParams = new URLSearchParams();
+    if (request.method === "GET" || request.method === "HEAD") searchParams.set("next", `${pathname}${search}`);
+    const query = searchParams.toString();
+    return externalRedirect(request, query ? `/login?${query}` : "/login");
   }
 
   return NextResponse.next();

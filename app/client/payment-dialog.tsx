@@ -169,8 +169,14 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
 
       {open ? (
         <div className="client-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-          <section className={`client-payment-dialog ${payment ? "qr-step" : ""}`} role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title">
+          <section className={`client-payment-dialog ${payment ? "qr-step" : ""}`} role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title" aria-busy={isPending}>
             <button className="client-dialog-close" type="button" aria-label="Đóng" onClick={closeDialog}>×</button>
+            {isPending ? (
+              <div className="client-api-loading" role="status" aria-live="polite">
+                <span aria-hidden="true" />
+                <p>Đang tạo mã thanh toán...</p>
+              </div>
+            ) : null}
 
             {settlement ? (
               <div className={`payment-result ${settlement.status === "PAID" ? "success" : "mismatch"}`} role="status" aria-live="polite">
