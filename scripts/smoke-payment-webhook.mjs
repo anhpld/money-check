@@ -100,7 +100,10 @@ try {
     && polling.cancelled.body.payment?.status === "REVIEW_REQUIRED"
     && member.rows[0]?.amountPaid === 1000
     && webhookLogs.rows.length === 5
-    && webhookLogs.rows.filter((log) => log.status === "SUCCESS").length === 4
+    && webhookLogs.rows.filter((log) => log.status === "PAID").length === 1
+    && webhookLogs.rows.filter((log) => log.status === "UNDERPAID").length === 1
+    && webhookLogs.rows.filter((log) => log.status === "OVERPAID").length === 1
+    && webhookLogs.rows.filter((log) => log.status === "REVIEW_REQUIRED").length === 1
     && webhookLogs.rows.filter((log) => log.status === "DUPLICATE").length === 1;
 
   console.log(JSON.stringify({ valid, results, polling, database: database.rows, webhookLogs: webhookLogs.rows, amountPaid: member.rows[0]?.amountPaid }, null, 2));

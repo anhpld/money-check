@@ -8,7 +8,7 @@ export type ConfirmTransactionResult =
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
-const reviewableStatuses = ["UNDERPAID", "OVERPAID", "REVIEW_REQUIRED"] as const;
+const reviewableStatuses = ["REVIEW_REQUIRED"] as const;
 
 export async function confirmTransaction(id: string): Promise<ConfirmTransactionResult> {
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };

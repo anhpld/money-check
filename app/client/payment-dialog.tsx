@@ -156,9 +156,19 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
     setError("");
   }
 
+  function retryPayment() {
+    if (isPending) return;
+    setPayment(null);
+    setQrFailed(false);
+    setSettlement(null);
+    setPollingTimedOut(false);
+    createPayment();
+  }
+
   const qrUrl = payment
     ? `https://img.vietqr.io/image/momo-PSP2623210100000214-compact2.jpg?amount=${payment.expectedAmount}&addInfo=${encodeURIComponent(payment.code)}`
     : "";
+  const settlementIsMismatch = settlement?.status === "UNDERPAID" || settlement?.status === "OVERPAID";
 
   return (
     <>
@@ -181,14 +191,12 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
             {settlement ? (
               <div className={`payment-result ${settlement.status === "PAID" ? "success" : "mismatch"}`} role="status" aria-live="polite">
                 <span className="payment-result-icon" aria-hidden="true">{settlement.status === "PAID" ? "✓" : "!"}</span>
-                <p className="client-kicker">{settlement.status === "PAID" ? "THANH TOÁN THÀNH CÔNG" : settlement.status === "CANCELLED" ? "MÃ ĐÃ HẾT HIỆU LỰC" : "GIAO DỊCH CẦN KIỂM TRA"}</p>
+                <p className="client-kicker">{settlement.status === "PAID" ? "THANH TOÁN THÀNH CÔNG" : settlementIsMismatch ? "CHUYỂN SAI SỐ TIỀN" : settlement.status === "CANCELLED" ? "MÃ ĐÃ HẾT HIỆU LỰC" : "GIAO DỊCH CẦN KIỂM TRA"}</p>
                 <h2 id="payment-dialog-title">
                   {settlement.status === "PAID"
                     ? "Đã ghi nhận khoản thanh toán"
-                    : settlement.status === "UNDERPAID"
-                      ? "Số tiền chuyển đang thiếu"
-                      : settlement.status === "OVERPAID"
-                        ? "Số tiền chuyển đang thừa"
+                    : settlementIsMismatch
+                      ? "Số tiền chuyển không khớp"
                         : settlement.status === "CANCELLED"
                           ? "Thông tin thanh toán đã thay đổi"
                           : "Đã nhận tiền từ mã cũ"}
@@ -196,12 +204,14 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 <p>
                   {settlement.status === "PAID"
                     ? "Danh sách khoản nợ đang được cập nhật. Bạn sẽ tự động quay lại màn chi tiết."
+                    : settlementIsMismatch
+                      ? `Cần chuyển ${formatVnd(settlement.expectedAmount)}, đã nhận ${formatVnd(settlement.actualAmount ?? 0)}. Khoản nợ vẫn được giữ nguyên; bạn có thể tạo QR mới ngay.`
                     : settlement.status === "CANCELLED"
                       ? "Mã này không còn hiệu lực. Hãy quay lại chi tiết và tạo QR mới với số tiền mới nhất."
                       : `Yêu cầu ${formatVnd(settlement.expectedAmount)}, đã nhận ${formatVnd(settlement.actualAmount ?? 0)}. Vui lòng liên hệ admin để kiểm tra.`}
                 </p>
                 {settlement.status === "PAID" ? <span className="payment-returning"><i />Đang quay lại màn chi tiết...</span> : (
-                  <button type="button" onClick={() => { closeDialog(); router.refresh(); }}>Quay lại chi tiết</button>
+                  <button type="button" onClick={settlementIsMismatch ? retryPayment : () => { closeDialog(); router.refresh(); }}>{settlementIsMismatch ? "Tạo lại QR" : "Quay lại chi tiết"}</button>
                 )}
               </div>
             ) : payment ? (
@@ -218,6 +228,13 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                     <Image src={qrUrl} alt={`QR thanh toán ${payment.code}`} width={420} height={560} unoptimized priority onError={() => setQrFailed(true)} />
                   )}
                 </div>
+                <a
+                  className="qr-download-button"
+                  href={`/api/payments/${encodeURIComponent(payment.code)}/qr`}
+                  download={`QR-${payment.code}.jpg`}
+                >
+                  Lưu ảnh QR
+                </a>
                 <strong className="qr-total">{formatVnd(payment.expectedAmount)}</strong>
                 <div className="payment-account"><span>Số tài khoản</span><strong>{PAYMENT_ACCOUNT}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(PAYMENT_ACCOUNT)}>Sao chép</button></div>
                 <div className="payment-code"><span>Nội dung chuyển khoản</span><strong>{payment.code}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(payment.code)}>Sao chép</button></div>

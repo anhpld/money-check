@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell } from "@/app/components/admin-shell";
+import { webhookStatusLabel } from "@/app/admin/webhook-logs/status";
 import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export default async function WebhookLogsPage({ searchParams }: { searchParams: 
                 <time>{dateTime.format(log.createdAt)}</time>
                 <code>{getRequestValue(log.request, "code")}</code>
                 <span>{getRequestValue(log.request, "amount")}</span>
-                <strong className={`webhook-status ${log.status.toLowerCase()}`}>{log.status}</strong>
+                <strong className={`webhook-status ${log.status.toLowerCase()}`}>{webhookStatusLabel(log.status)}</strong>
               </Link>
             ))}
           </section>

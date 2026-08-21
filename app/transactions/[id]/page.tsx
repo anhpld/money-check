@@ -52,7 +52,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
               <div><dt>Người chuyển</dt><dd>{transaction.user.name}</dd></div>
               <div><dt>Thời điểm tạo</dt><dd>{dateTime.format(transaction.createdAt)}</dd></div>
               <div><dt>Webhook xử lý</dt><dd>{transaction.processedAt ? dateTime.format(transaction.processedAt) : "Chưa nhận webhook"}</dd></div>
-              <div><dt>Admin xác nhận</dt><dd>{transaction.resolvedAt ? dateTime.format(transaction.resolvedAt) : "—"}</dd></div>
+              <div><dt>Kết thúc xử lý</dt><dd>{transaction.resolvedAt ? dateTime.format(transaction.resolvedAt) : "—"}</dd></div>
             </dl>
           </section>
           <section className="panel transaction-detail-panel">
@@ -62,7 +62,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
         </div>
 
         <section className="panel transaction-items-panel">
-          <div className="transaction-detail-panel-heading"><div><h2>Các khoản được thanh toán</h2><p>{transaction.items.length} khoản trong mã này</p></div></div>
+          <div className="transaction-detail-panel-heading"><div><h2>Các khoản trong mã QR</h2><p>{transaction.items.length} khoản tại thời điểm tạo mã</p></div></div>
           <div className="table-wrap"><table><thead><tr><th>Buổi bóng</th><th>Ngày đá</th><th>Tiền bóng</th><th>Tiền nước</th><th>Tổng</th></tr></thead><tbody>{transaction.items.map((item) => <tr key={item.id}><td><strong>{item.sessionMember.session.title}</strong></td><td>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "UTC" }).format(item.sessionMember.session.playedAt)}</td><td>{formatVnd(item.footballAmount)}</td><td>{formatVnd(item.waterAmount)}</td><td><strong className="amount-emphasis">{formatVnd(item.expectedAmount)}</strong></td></tr>)}</tbody></table></div>
         </section>
       </div>

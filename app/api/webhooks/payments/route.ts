@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
+import { sendPaymentReceivedNotification } from "@/lib/send-payment-notification";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ type WebhookBody = {
   fullContent?: unknown;
 };
 
-type WebhookLogStatus = "SUCCESS" | "DUPLICATE" | "NOT_FOUND" | "INVALID" | "FAILED";
+type WebhookLogStatus = "SUCCESS" | "PAID" | "UNDERPAID" | "OVERPAID" | "REVIEW_REQUIRED" | "DUPLICATE" | "NOT_FOUND" | "INVALID" | "FAILED";
 
 type ProcessedPayment = {
   code: string;
@@ -24,6 +25,8 @@ type ProcessedPayment = {
   items: Array<{
     sessionMemberId: string;
     title: string;
+    playedAt: Date;
+    waterAmount: number;
     expectedAmount: number;
   }>;
 };
@@ -53,8 +56,8 @@ function parseAmountFromContent(content: string) {
 function responseMessage(status: ProcessedPayment["status"], duplicate: boolean) {
   if (duplicate) return "Webhook này đã được xử lý trước đó.";
   if (status === "PAID") return "Thanh toán khớp và đã được ghi nhận.";
-  if (status === "UNDERPAID") return "Đã ghi nhận giao dịch thiếu tiền, cần admin kiểm tra.";
-  if (status === "OVERPAID") return "Đã ghi nhận giao dịch thừa tiền, cần admin kiểm tra.";
+  if (status === "UNDERPAID") return "Số tiền chuyển bị thiếu. Khoản nợ được giữ nguyên, có thể tạo mã thanh toán mới.";
+  if (status === "OVERPAID") return "Số tiền chuyển bị thừa. Khoản nợ được giữ nguyên, có thể tạo mã thanh toán mới.";
   if (status === "REVIEW_REQUIRED") return "Đã nhận tiền từ mã không còn hiệu lực, cần admin kiểm tra.";
   if (status === "CANCELLED") return "Mã thanh toán không còn hiệu lực.";
   return "Đã nhận webhook.";
@@ -165,7 +168,7 @@ export async function POST(request: Request) {
           items: {
             include: {
               sessionMember: {
-                include: { session: { select: { title: true } } },
+                include: { session: { select: { title: true, playedAt: true } } },
               },
             },
           },
@@ -177,6 +180,8 @@ export async function POST(request: Request) {
       const serializedItems = paymentRequest.items.map((item) => ({
         sessionMemberId: item.sessionMemberId,
         title: item.sessionMember.session.title,
+        playedAt: item.sessionMember.session.playedAt,
+        waterAmount: item.waterAmount,
         expectedAmount: item.expectedAmount,
       }));
 
@@ -242,6 +247,7 @@ export async function POST(request: Request) {
         : amount < paymentRequest.expectedAmount
           ? "UNDERPAID"
           : "OVERPAID";
+      const processedAt = new Date();
 
       // The conditional update claims this PENDING request. If two webhook calls
       // arrive together, only one is allowed to continue to the balance updates.
@@ -251,7 +257,8 @@ export async function POST(request: Request) {
           actualAmount: amount,
           fullContent,
           status,
-          processedAt: new Date(),
+          processedAt,
+          resolvedAt: processedAt,
         },
       });
 
@@ -299,9 +306,28 @@ export async function POST(request: Request) {
       );
     }
 
+    let notificationStatus: "sent" | "skipped" | "failed" = "skipped";
+    if (!result.duplicate && result.actualAmount) {
+      const notification = await sendPaymentReceivedNotification({
+        amount: result.actualAmount,
+        expectedAmount: result.expectedAmount,
+        status: result.status,
+        userName: result.user.name,
+        items: result.items,
+      });
+      notificationStatus = notification.status;
+      if (notification.status === "failed") {
+        console.error(`Không thể gửi thông báo thanh toán ${result.code}:`, notification.error);
+      }
+    }
+
     return loggedResponse(
       logRequest,
-      result.duplicate ? "DUPLICATE" : "SUCCESS",
+      result.duplicate
+        ? "DUPLICATE"
+        : result.status === "PAID" || result.status === "UNDERPAID" || result.status === "OVERPAID" || result.status === "REVIEW_REQUIRED"
+          ? result.status
+          : "SUCCESS",
       {
         success: true,
         message: responseMessage(result.status, result.duplicate),
@@ -309,6 +335,7 @@ export async function POST(request: Request) {
           ...result,
           difference: (result.actualAmount ?? 0) - result.expectedAmount,
         },
+        notification: notificationStatus,
       },
     );
   } catch (error) {

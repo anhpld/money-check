@@ -15,5 +15,4 @@ export function isPaymentStatus(value: string | undefined): value is PaymentStat
   return paymentStatusOptions.some(([status]) => status === value);
 }
 
-export const reviewablePaymentStatuses = ["UNDERPAID", "OVERPAID", "REVIEW_REQUIRED"] as const;
-
+export const reviewablePaymentStatuses = ["REVIEW_REQUIRED"] as const;

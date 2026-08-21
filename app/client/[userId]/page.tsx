@@ -18,7 +18,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         include: { session: true },
       },
       paymentRequests: {
-        where: { status: { in: ["UNDERPAID", "OVERPAID", "REVIEW_REQUIRED"] } },
+        where: { status: "REVIEW_REQUIRED" },
         orderBy: { createdAt: "desc" },
         take: 1,
         select: { status: true, code: true, actualAmount: true, expectedAmount: true },
@@ -54,7 +54,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         </section>
 
         {unresolvedPayment ? (
-          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>{unresolvedPayment.status === "REVIEW_REQUIRED" ? "Đã nhận tiền từ mã thanh toán cũ" : `Giao dịch ${unresolvedPayment.status === "UNDERPAID" ? "thiếu tiền" : "thừa tiền"} đang chờ kiểm tra`}</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
+          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Đã nhận tiền từ mã thanh toán cũ</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
         ) : null}
 
         <section className="client-debt-list">

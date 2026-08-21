@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { webhookStatusLabel } from "@/app/admin/webhook-logs/status";
 import { AdminShell } from "@/app/components/admin-shell";
 import { getPrisma } from "@/lib/prisma";
 
@@ -23,7 +24,7 @@ export default async function WebhookLogDetailPage({ params }: { params: Promise
         <Link className="transaction-detail-back" href="/admin/webhook-logs">← Danh sách webhook</Link>
         <header className="webhook-detail-heading">
           <div><p className="eyebrow">CHI TIẾT WEBHOOK</p><h1>{getCode(log.request)}</h1><time>{dateTime.format(log.createdAt)}</time></div>
-          <strong className={`webhook-status ${log.status.toLowerCase()}`}>{log.status}</strong>
+          <strong className={`webhook-status ${log.status.toLowerCase()}`}>{webhookStatusLabel(log.status)}</strong>
         </header>
         <section className="panel webhook-json-panel">
           <div><h2>Request JSON</h2><span>ID: {log.id}</span></div>

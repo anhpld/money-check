@@ -55,9 +55,7 @@ export default async function TransactionsPage({
 
   const counts = new Map(groupedStatuses.map((group) => [group.status, group._count._all]));
   const total = groupedStatuses.reduce((sum, group) => sum + group._count._all, 0);
-  const needsReview = (counts.get("UNDERPAID") ?? 0)
-    + (counts.get("OVERPAID") ?? 0)
-    + (counts.get("REVIEW_REQUIRED") ?? 0);
+  const needsReview = counts.get("REVIEW_REQUIRED") ?? 0;
 
   return (
     <AdminShell active="transactions">

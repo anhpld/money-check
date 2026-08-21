@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { Prisma } from "@/app/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
 function generatePaymentCode() {
@@ -27,6 +28,34 @@ type CreatePaymentInput = {
   userId: string;
   sessions: Array<{ sessionMemberId: string; waterAmount: number }>;
 };
+
+type PaymentItemSnapshot = {
+  sessionMemberId: string;
+  footballAmount: number;
+  waterAmount: number;
+  expectedAmount: number;
+};
+
+function matchesSnapshot(
+  request: { code: string; expectedAmount: number; items: PaymentItemSnapshot[] },
+  expectedAmount: number,
+  items: PaymentItemSnapshot[],
+) {
+  const oldItems = new Map(request.items.map((item) => [item.sessionMemberId, item]));
+  return /^PAY[A-F0-9]{8}$/.test(request.code)
+    && request.expectedAmount === expectedAmount
+    && request.items.length === items.length
+    && items.every((item) => {
+      const oldItem = oldItems.get(item.sessionMemberId);
+      return oldItem?.footballAmount === item.footballAmount
+        && oldItem.waterAmount === item.waterAmount
+        && oldItem.expectedAmount === item.expectedAmount;
+    });
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
 
 function serializeRequest(request: {
   code: string;
@@ -103,18 +132,7 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     if (!expectedAmount) return { status: "error", message: "Các khoản của bạn đã được thanh toán." };
 
     if (existing) {
-      const oldItems = new Map(existing.items.map((item) => [item.sessionMemberId, item]));
-      const sameSnapshot = /^PAY[A-F0-9]{8}$/.test(existing.code)
-        && existing.expectedAmount === expectedAmount
-        && existing.items.length === items.length
-        && items.every((item) => {
-          const oldItem = oldItems.get(item.sessionMemberId);
-          return oldItem?.footballAmount === item.footballAmount
-            && oldItem.waterAmount === item.waterAmount
-            && oldItem.expectedAmount === item.expectedAmount;
-        });
-
-      if (sameSnapshot) return serializeRequest(existing, true);
+      if (matchesSnapshot(existing, expectedAmount, items)) return serializeRequest(existing, true);
 
       const code = generatePaymentCode();
       const newRequest = await prisma.$transaction(async (transaction) => {
@@ -144,14 +162,31 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     }
 
     const code = generatePaymentCode();
-    const request = await prisma.$transaction(async (transaction) => {
-      return transaction.paymentRequest.create({
-        data: {
-          userId: input.userId,
-          code,
-          expectedAmount,
-          items: { create: items },
-        },
+    try {
+      const request = await prisma.$transaction(async (transaction) => {
+        return transaction.paymentRequest.create({
+          data: {
+            userId: input.userId,
+            code,
+            expectedAmount,
+            items: { create: items },
+          },
+          include: {
+            items: {
+              orderBy: { sessionMember: { session: { playedAt: "asc" } } },
+              include: { sessionMember: { include: { session: true } } },
+            },
+          },
+        });
+      });
+
+      return serializeRequest(request, false);
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) throw error;
+
+      const concurrentRequest = await prisma.paymentRequest.findFirst({
+        where: { userId: input.userId, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
         include: {
           items: {
             orderBy: { sessionMember: { session: { playedAt: "asc" } } },
@@ -159,11 +194,13 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
           },
         },
       });
-    });
-
-    return serializeRequest(request, false);
+      if (concurrentRequest && matchesSnapshot(concurrentRequest, expectedAmount, items)) {
+        return serializeRequest(concurrentRequest, true);
+      }
+      throw new Error("PAYMENT_REQUEST_CHANGED");
+    }
   } catch (error) {
-    if (error instanceof Error && error.message === "PAYMENT_REQUEST_NOT_PENDING") {
+    if (error instanceof Error && (error.message === "PAYMENT_REQUEST_NOT_PENDING" || error.message === "PAYMENT_REQUEST_CHANGED")) {
       return { status: "error", message: "Giao dịch vừa được xử lý. Vui lòng tải lại trang." };
     }
     console.error("Không thể tạo payment request:", error);

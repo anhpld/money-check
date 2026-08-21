@@ -12,6 +12,17 @@ export function getPrisma() {
     throw new Error("DATABASE_URL chưa được cấu hình.");
   }
 
+  // Prisma's singleton survives Next.js development hot reloads. Replace an
+  // older generated client that was cached before the Setting model existed.
+  const cachedPrisma = globalForPrisma.prisma;
+  const cachedHasSetting = cachedPrisma
+    ? Boolean((cachedPrisma as unknown as { setting?: unknown }).setting)
+    : false;
+  if (cachedPrisma && !cachedHasSetting) {
+    void cachedPrisma.$disconnect();
+    globalForPrisma.prisma = undefined;
+  }
+
   if (!globalForPrisma.prisma) {
     const adapter = new PrismaPg(
       {

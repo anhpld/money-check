@@ -34,7 +34,7 @@ Khi `amount` là `null`, hệ thống tự đọc số tiền ở đầu `conten
 Test một mã đang chờ thanh toán:
 
 ```bash
-pnpm test:webhook PAY3FA91C82 120000 "Số tiền 120.000 ₫, kèm lời nhắn: dong PAY3FA91C82"
+pnpm test:webhook PAY3FA91C82 120000
 ```
 
 ## Getting Started

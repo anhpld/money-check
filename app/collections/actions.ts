@@ -9,7 +9,7 @@ export type ManualPaymentResult =
   | { status: "success"; message: string; amountPaid: number; manualPaidAt: string | null }
   | { status: "error"; message: string };
 
-const unresolvedPaymentStatuses = ["UNDERPAID", "OVERPAID", "REVIEW_REQUIRED"] as const;
+const blockingPaymentStatuses = ["REVIEW_REQUIRED"] as const;
 
 export async function markMemberPaidManually(sessionMemberId: string): Promise<ManualPaymentResult> {
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
@@ -23,7 +23,7 @@ export async function markMemberPaidManually(sessionMemberId: string): Promise<M
         include: {
           session: { select: { id: true, status: true } },
           paymentItems: {
-            where: { paymentRequest: { status: { in: [...unresolvedPaymentStatuses] } } },
+            where: { paymentRequest: { status: { in: [...blockingPaymentStatuses] } } },
             select: { id: true },
             take: 1,
           },
