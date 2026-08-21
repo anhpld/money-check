@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createOrReusePaymentRequest, type PaymentRequestResult } from "@/app/client/actions";
 import { formatMoneyInput, formatVnd, parseMoneyInput } from "@/lib/money";
@@ -12,24 +13,38 @@ export type ClientDebtItem = {
   slots: number;
   footballAmount: number;
   defaultWaterAmount: number;
-  waterAmount: number | null;
   totalOutstanding: number;
   note: string | null;
+  sessionNote: string | null;
 };
 
 type WaterSelection = { included: boolean; amount: number };
+type Settlement = {
+  status: "PAID" | "UNDERPAID" | "OVERPAID" | "CANCELLED" | "REVIEW_REQUIRED";
+  expectedAmount: number;
+  actualAmount: number | null;
+};
+const PAYMENT_ACCOUNT = "PSP2623210100000214";
+const POLLING_INTERVAL_MS = 2_000;
+const MAX_POLLING_ATTEMPTS = 300;
 
-export function PaymentDialog({ userId, userName, debts }: { userId: string; userName: string; debts: ClientDebtItem[] }) {
+function createDefaultWaterSelections(debts: ClientDebtItem[]) {
+  return Object.fromEntries(debts.map((debt) => [debt.sessionMemberId, {
+    included: true,
+    amount: debt.defaultWaterAmount,
+  }]));
+}
+
+export function PaymentDialog({ userId, debts }: { userId: string; debts: ClientDebtItem[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [qrFailed, setQrFailed] = useState(false);
+  const [settlement, setSettlement] = useState<Settlement | null>(null);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const [payment, setPayment] = useState<Extract<PaymentRequestResult, { status: "success" }>["request"] | null>(null);
-  const [water, setWater] = useState<Record<string, WaterSelection>>(() => Object.fromEntries(
-    debts.map((debt) => [debt.sessionMemberId, {
-      included: (debt.waterAmount ?? 0) > 0,
-      amount: debt.waterAmount ?? debt.defaultWaterAmount,
-    }]),
-  ));
+  const [water, setWater] = useState<Record<string, WaterSelection>>(() => createDefaultWaterSelections(debts));
 
   const reviewTotal = useMemo(() => debts.reduce((sum, debt) => {
     const selection = water[debt.sessionMemberId];
@@ -42,6 +57,59 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previousOverflow; };
   }, [open]);
+
+  const paymentCode = payment?.code;
+  useEffect(() => {
+    if (!open || !paymentCode) return;
+
+    let stopped = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function pollStatus() {
+      if (stopped) return;
+      attempts += 1;
+
+      try {
+        const response = await fetch(`/api/payments/${encodeURIComponent(paymentCode!)}/status`, {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const result = await response.json() as { payment: Settlement | { status: "PENDING" } };
+          if (result.payment.status !== "PENDING") {
+            setSettlement(result.payment as Settlement);
+            return;
+          }
+        }
+      } catch {
+        // A temporary network error should not interrupt payment checking.
+      }
+
+      if (attempts >= MAX_POLLING_ATTEMPTS) {
+        setPollingTimedOut(true);
+        return;
+      }
+      timer = setTimeout(pollStatus, POLLING_INTERVAL_MS);
+    }
+
+    void pollStatus();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [open, paymentCode]);
+
+  useEffect(() => {
+    if (settlement?.status !== "PAID") return;
+    const timer = setTimeout(() => {
+      setOpen(false);
+      setPayment(null);
+      setSettlement(null);
+      setPollingTimedOut(false);
+      router.refresh();
+    }, 2_000);
+    return () => clearTimeout(timer);
+  }, [router, settlement?.status]);
 
   function toggleWater(debt: ClientDebtItem) {
     setWater((current) => {
@@ -70,6 +138,9 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
         setError(result.message);
         return;
       }
+      setQrFailed(false);
+      setSettlement(null);
+      setPollingTimedOut(false);
       setPayment(result.request);
     });
   }
@@ -78,6 +149,10 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
     if (isPending) return;
     setOpen(false);
     setPayment(null);
+    setQrFailed(false);
+    setSettlement(null);
+    setPollingTimedOut(false);
+    setWater(createDefaultWaterSelections(debts));
     setError("");
   }
 
@@ -88,7 +163,7 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
   return (
     <>
       <button className="client-pay-all" type="button" onClick={() => setOpen(true)}>
-        Trả tất cả · {formatVnd(debts.reduce((sum, debt) => sum + debt.footballAmount + (debt.waterAmount ?? 0), 0))}
+        Trả tất cả
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
       </button>
 
@@ -97,25 +172,56 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
           <section className={`client-payment-dialog ${payment ? "qr-step" : ""}`} role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title">
             <button className="client-dialog-close" type="button" aria-label="Đóng" onClick={closeDialog}>×</button>
 
-            {payment ? (
+            {settlement ? (
+              <div className={`payment-result ${settlement.status === "PAID" ? "success" : "mismatch"}`} role="status" aria-live="polite">
+                <span className="payment-result-icon" aria-hidden="true">{settlement.status === "PAID" ? "✓" : "!"}</span>
+                <p className="client-kicker">{settlement.status === "PAID" ? "THANH TOÁN THÀNH CÔNG" : settlement.status === "CANCELLED" ? "MÃ ĐÃ HẾT HIỆU LỰC" : "GIAO DỊCH CẦN KIỂM TRA"}</p>
+                <h2 id="payment-dialog-title">
+                  {settlement.status === "PAID"
+                    ? "Đã ghi nhận khoản thanh toán"
+                    : settlement.status === "UNDERPAID"
+                      ? "Số tiền chuyển đang thiếu"
+                      : settlement.status === "OVERPAID"
+                        ? "Số tiền chuyển đang thừa"
+                        : settlement.status === "CANCELLED"
+                          ? "Thông tin thanh toán đã thay đổi"
+                          : "Đã nhận tiền từ mã cũ"}
+                </h2>
+                <p>
+                  {settlement.status === "PAID"
+                    ? "Danh sách khoản nợ đang được cập nhật. Bạn sẽ tự động quay lại màn chi tiết."
+                    : settlement.status === "CANCELLED"
+                      ? "Mã này không còn hiệu lực. Hãy quay lại chi tiết và tạo QR mới với số tiền mới nhất."
+                      : `Yêu cầu ${formatVnd(settlement.expectedAmount)}, đã nhận ${formatVnd(settlement.actualAmount ?? 0)}. Vui lòng liên hệ admin để kiểm tra.`}
+                </p>
+                {settlement.status === "PAID" ? <span className="payment-returning"><i />Đang quay lại màn chi tiết...</span> : (
+                  <button type="button" onClick={() => { closeDialog(); router.refresh(); }}>Quay lại chi tiết</button>
+                )}
+              </div>
+            ) : payment ? (
               <div className="qr-content">
-                <p className="client-kicker">SẴN SÀNG THANH TOÁN</p>
-                <h2 id="payment-dialog-title">Quét mã để trả tiền</h2>
-                <p className="qr-subtitle">QR của {userName} · {payment.items.length} buổi</p>
-                {payment.reused ? <div className="reused-notice">Đang dùng lại mã thanh toán chưa hoàn tất trước đó.</div> : null}
-                <div className="qr-image-shell">
-                  <Image src={qrUrl} alt={`QR thanh toán ${payment.code}`} width={420} height={560} unoptimized priority />
+                <p className="client-kicker" id="payment-dialog-title">SẴN SÀNG THANH TOÁN</p>
+                <div className={`qr-image-shell ${qrFailed ? "qr-failed" : ""}`}>
+                  {qrFailed ? (
+                    <div className="qr-fallback" role="alert">
+                      <span aria-hidden="true">!</span>
+                      <strong>Không tải được mã QR</strong>
+                      <p>Bạn có thể chuyển khoản thủ công bằng thông tin bên dưới.</p>
+                    </div>
+                  ) : (
+                    <Image src={qrUrl} alt={`QR thanh toán ${payment.code}`} width={420} height={560} unoptimized priority onError={() => setQrFailed(true)} />
+                  )}
                 </div>
                 <strong className="qr-total">{formatVnd(payment.expectedAmount)}</strong>
+                <div className="payment-account"><span>Số tài khoản</span><strong>{PAYMENT_ACCOUNT}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(PAYMENT_ACCOUNT)}>Sao chép</button></div>
                 <div className="payment-code"><span>Nội dung chuyển khoản</span><strong>{payment.code}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(payment.code)}>Sao chép</button></div>
+                <p className="payment-waiting"><i />{pollingTimedOut ? "Chưa nhận được kết quả. Bạn có thể đóng và kiểm tra lại sau." : "Đang chờ xác nhận thanh toán..."}</p>
                 <p className="qr-note">Vui lòng giữ nguyên số tiền và nội dung để hệ thống tự đối soát.</p>
               </div>
             ) : (
               <>
-                <div className="client-dialog-heading">
-                  <p className="client-kicker">KIỂM TRA TRƯỚC KHI TRẢ</p>
-                  <h2 id="payment-dialog-title">Bạn có uống nước không?</h2>
-                  <p>Tích vào từng buổi có uống nước và sửa số tiền nếu cần.</p>
+                <div className="client-dialog-heading compact">
+                  <p className="client-kicker" id="payment-dialog-title">KIỂM TRA TRƯỚC KHI TRẢ</p>
                 </div>
 
                 <div className="water-review-list">
@@ -124,14 +230,18 @@ export function PaymentDialog({ userId, userName, debts }: { userId: string; use
                     return (
                       <div className="water-review-item" key={debt.sessionMemberId}>
                         <div className="water-session-info">
-                          <span>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span>
-                          <strong>{debt.title}</strong>
-                          <small>{debt.slots} slot · Tiền bóng {formatVnd(debt.footballAmount)}</small>
+                          <div className="water-session-heading"><strong>{debt.title}</strong><span>· {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+                          {debt.note ? <small className="water-member-note">Ghi chú: {debt.note}</small> : null}
                         </div>
-                        <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Có uống nước</span></label>
-                        {selection?.included ? (
-                          <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
-                        ) : null}
+                        <div className="water-cost-breakdown">
+                          <div className="water-cost-row football-cost"><span>Tiền bóng × {debt.slots} slot</span><strong>{formatVnd(debt.footballAmount)}</strong></div>
+                          <div className="water-cost-row">
+                            <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Tiền nước</span></label>
+                            {selection?.included ? (
+                              <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
+                            ) : <span className="water-cost-empty">0 đ</span>}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

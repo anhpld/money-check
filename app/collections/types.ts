@@ -7,6 +7,7 @@ export type CollectionMemberInput = {
   userId: string;
   slots: number;
   amountDue: number;
+  note: string;
 };
 
 export type CollectionEditorData = {
@@ -20,6 +21,7 @@ export type CollectionEditorData = {
   members: Array<CollectionMemberInput & {
     id: string;
     amountPaid: number;
+    manualPaidAt: string | null;
   }>;
 };
 
@@ -32,7 +34,6 @@ export type SaveCollectionInput = {
   defaultWaterAmount: number;
   status: "DRAFT" | "PUBLISHED";
   members: CollectionMemberInput[];
-  adjustmentReason?: string;
 };
 
 export type CollectionActionResult = {

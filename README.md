@@ -1,4 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MoneyFlow
+
+Ứng dụng quản lý khoản thu bóng đá, thanh toán bằng QR và đối soát qua webhook.
+
+## Payment webhook
+
+Endpoint:
+
+```text
+POST /api/webhooks/payments
+Content-Type: application/json
+x-webhook-secret: <WEBHOOK_SECRET> # chỉ bắt buộc khi env này được cấu hình
+```
+
+Payload:
+
+```json
+{
+  "amount": null,
+  "code": "PAY3FA91C82",
+  "content": "Số tiền 120.000 ₫, kèm lời nhắn: \"dong PAY3FA91C82.CT tu 0451000400963 toi PSP2623210100000214 tai MoMo\"."
+}
+```
+
+Khi `amount` là `null`, hệ thống tự đọc số tiền ở đầu `content` (ví dụ `Số tiền 120.000 ₫`). Key `fullContent` cũ vẫn được hỗ trợ để tương thích ngược.
+
+- Đúng số tiền: `PAID`, đồng thời ghi nhận tiền cho từng buổi.
+- Thiếu tiền: `UNDERPAID`, chỉ lưu trạng thái để admin xử lý.
+- Thừa tiền: `OVERPAID`, chỉ lưu trạng thái để admin xử lý.
+- Webhook gọi lặp không cộng tiền lần thứ hai.
+- Code chỉ được dùng lại khi danh sách khoản thu và số tiền giống hệt. Nếu dữ liệu thay đổi, code cũ chuyển sang `CANCELLED` và hệ thống tạo code mới.
+- Tiền chuyển vào code đã `CANCELLED` sẽ thành `REVIEW_REQUIRED`, không tự phân bổ.
+
+Test một mã đang chờ thanh toán:
+
+```bash
+pnpm test:webhook PAY3FA91C82 120000 "Số tiền 120.000 ₫, kèm lời nhắn: dong PAY3FA91C82"
+```
 
 ## Getting Started
 

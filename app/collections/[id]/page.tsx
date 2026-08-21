@@ -11,7 +11,7 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
     getPrisma().user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     getPrisma().footballSession.findUnique({
       where: { id },
-      include: { members: { select: { id: true, userId: true, slots: true, amountDue: true, amountPaid: true } } },
+      include: { members: { select: { id: true, userId: true, slots: true, amountDue: true, amountPaid: true, manualPaidAt: true, note: true } } },
     }),
   ]);
   if (!session) notFound();
@@ -33,7 +33,7 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
             totalAmount: session.totalAmount,
             defaultWaterAmount: session.defaultWaterAmount,
             status: session.status,
-            members: session.members,
+            members: session.members.map((member) => ({ ...member, manualPaidAt: member.manualPaidAt?.toISOString() ?? null, note: member.note ?? "" })),
           }}
         />
       </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type AdminSection = "users" | "collections";
+type AdminSection = "users" | "collections" | "transactions";
 
 function BrandMark() {
   return (
@@ -29,7 +29,7 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
   return (
     <div className="admin-shell">
       <aside className="sidebar">
-        <Link href="/" className="brand" aria-label="MoneyFlow - trang quản trị">
+        <Link href="/admin" className="brand" aria-label="MoneyFlow - trang quản trị">
           <BrandMark />
           <span>Money<span>Flow</span></span>
         </Link>
@@ -37,9 +37,9 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
         <nav className="main-nav" aria-label="Điều hướng quản trị">
           <p>QUẢN LÝ</p>
           <a href="#overview"><SidebarIcon type="grid" />Tổng quan</a>
-          <Link href="/" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
-          <Link href="/collections" className={active === "collections" ? "active" : undefined}><SidebarIcon type="wallet" />Khoản thu</Link>
-          <a href="#transactions"><SidebarIcon type="swap" />Giao dịch<span className="soon">Sắp có</span></a>
+          <Link href="/admin" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
+          <Link href="/admin/collections" className={active === "collections" ? "active" : undefined}><SidebarIcon type="wallet" />Khoản thu</Link>
+          <Link href="/admin/transactions" className={active === "transactions" ? "active" : undefined}><SidebarIcon type="swap" />Giao dịch</Link>
           <p>HỆ THỐNG</p>
           <a href="#webhook"><SidebarIcon type="hook" />Webhook<span className="soon">Sắp có</span></a>
         </nav>
@@ -47,26 +47,15 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
         <div className="sidebar-footer">
           <div className="admin-avatar">AD</div>
           <div><strong>Quản trị viên</strong><span>Admin</span></div>
-          <button aria-label="Mở tùy chọn tài khoản">•••</button>
+          <form action="/api/auth/logout" method="post">
+            <button className="sidebar-logout" type="submit" aria-label="Đăng xuất" title="Đăng xuất">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" /></svg>
+            </button>
+          </form>
         </div>
       </aside>
 
-      <main className="admin-main">
-        <header className="topbar">
-          <div className="mobile-brand"><BrandMark /> MoneyFlow</div>
-          <div className="topbar-actions">
-            <Link className="client-link" href="/client">
-              Xem trang người dùng
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-            </Link>
-            <button className="notification" aria-label="Thông báo">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-              <span />
-            </button>
-          </div>
-        </header>
-        {children}
-      </main>
+      <main className="admin-main">{children}</main>
     </div>
   );
 }

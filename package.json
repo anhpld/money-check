@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:webhook": "node scripts/test-payment-webhook.mjs",
+    "test:webhook:smoke": "node scripts/smoke-payment-webhook.mjs",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

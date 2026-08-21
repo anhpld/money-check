@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MoneyFlow — Quản lý thanh toán",
+  title: "Quản lý thanh toán",
   description: "Quản lý người dùng và các khoản thanh toán tập trung.",
 };
 

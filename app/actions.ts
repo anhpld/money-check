@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getPrisma } from "@/lib/prisma";
+import { isAdminAuthenticated } from "@/lib/admin-session";
 
 export type UserActionResult = {
   status: "success" | "error";
@@ -24,12 +25,13 @@ function getValidName(formData: FormData): UserActionResult | string {
 }
 
 export async function createUser(formData: FormData): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
   const name = getValidName(formData);
   if (typeof name !== "string") return name;
 
   try {
     await getPrisma().user.create({ data: { name } });
-    revalidatePath("/");
+    revalidatePath("/admin");
     return { status: "success", message: `Đã thêm ${name}.` };
   } catch (error) {
     console.error("Không thể tạo người dùng:", error);
@@ -38,6 +40,7 @@ export async function createUser(formData: FormData): Promise<UserActionResult> 
 }
 
 export async function updateUser(formData: FormData): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
   const idValue = formData.get("id");
   const id = typeof idValue === "string" ? idValue : "";
   const name = getValidName(formData);
@@ -47,7 +50,7 @@ export async function updateUser(formData: FormData): Promise<UserActionResult> 
 
   try {
     await getPrisma().user.update({ where: { id }, data: { name } });
-    revalidatePath("/");
+    revalidatePath("/admin");
     return { status: "success", message: `Đã cập nhật ${name}.` };
   } catch (error) {
     console.error("Không thể cập nhật người dùng:", error);
@@ -56,11 +59,12 @@ export async function updateUser(formData: FormData): Promise<UserActionResult> 
 }
 
 export async function deleteUser(id: string): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
   if (!id) return { status: "error", message: "Không tìm thấy người dùng cần xóa." };
 
   try {
     const user = await getPrisma().user.delete({ where: { id } });
-    revalidatePath("/");
+    revalidatePath("/admin");
     return { status: "success", message: `Đã xóa ${user.name}.` };
   } catch (error) {
     console.error("Không thể xóa người dùng:", error);

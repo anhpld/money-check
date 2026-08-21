@@ -18,7 +18,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         include: { session: true },
       },
       paymentRequests: {
-        where: { status: { in: ["UNDERPAID", "OVERPAID"] } },
+        where: { status: { in: ["UNDERPAID", "OVERPAID", "REVIEW_REQUIRED"] } },
         orderBy: { createdAt: "desc" },
         take: 1,
         select: { status: true, code: true, actualAmount: true, expectedAmount: true },
@@ -35,9 +35,9 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
       slots: member.slots,
       footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
       defaultWaterAmount: member.session.defaultWaterAmount,
-      waterAmount: member.waterAmount,
-      totalOutstanding: Math.max(member.amountDue + (member.waterAmount ?? 0) - member.amountPaid, 0),
-      note: member.session.note,
+      totalOutstanding: Math.max(member.amountDue - member.amountPaid, 0),
+      note: member.note,
+      sessionNote: member.session.note,
     }))
     .filter((member) => member.totalOutstanding > 0);
   const outstanding = debts.reduce((sum, debt) => sum + debt.totalOutstanding, 0);
@@ -54,21 +54,22 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         </section>
 
         {unresolvedPayment ? (
-          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Giao dịch {unresolvedPayment.status === "UNDERPAID" ? "thiếu tiền" : "thừa tiền"} đang chờ kiểm tra</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
+          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>{unresolvedPayment.status === "REVIEW_REQUIRED" ? "Đã nhận tiền từ mã thanh toán cũ" : `Giao dịch ${unresolvedPayment.status === "UNDERPAID" ? "thiếu tiền" : "thừa tiền"} đang chờ kiểm tra`}</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
         ) : null}
 
         <section className="client-debt-list">
           {debts.map((debt) => (
             <article className="client-debt-card" key={debt.sessionMemberId}>
               <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
-              <div className="debt-info"><h2>{debt.title}</h2><p>{debt.slots} slot{debt.note ? ` · ${debt.note}` : ""}</p>{debt.waterAmount ? <span>Đã khai tiền nước {formatVnd(debt.waterAmount)}</span> : null}</div>
+              <div className="debt-info"><h2>{debt.title}</h2>{debt.sessionNote ? <p>{debt.sessionNote}</p> : null}{debt.note ? <span className="member-note">Ghi chú cho bạn: {debt.note}</span> : null}</div>
+              <div className="debt-slots"><span>Slot</span><strong>{debt.slots}</strong></div>
               <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
             </article>
           ))}
           {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Hẹn gặp bạn ở trận tiếp theo!</p></div> : null}
         </section>
 
-        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} userName={user.name} debts={debts} /> : null}
+        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : null}
       </main>
     </ClientShell>
   );

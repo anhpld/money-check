@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { saveCollection } from "@/app/collections/actions";
+import { markMemberPaidManually, saveCollection } from "@/app/collections/actions";
 import type { CollectionEditorData, CollectionUser } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 
@@ -17,7 +17,6 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const [note, setNote] = useState(initial?.note ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0);
   const [defaultWaterAmount, setDefaultWaterAmount] = useState(initial?.defaultWaterAmount ?? 0);
-  const [adjustmentReason, setAdjustmentReason] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>(initial?.members.map((member) => member.userId) ?? []);
   const [slots, setSlots] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.slots]) ?? []),
@@ -25,6 +24,17 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const [amounts, setAmounts] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.amountDue]) ?? []),
   );
+  const [memberNotes, setMemberNotes] = useState<Record<string, string>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.note]) ?? []),
+  );
+  const [paidAmounts, setPaidAmounts] = useState<Record<string, number>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.amountPaid]) ?? []),
+  );
+  const [manualPaidUsers, setManualPaidUsers] = useState<Record<string, boolean>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, Boolean(member.manualPaidAt)]) ?? []),
+  );
+  const [manualPaymentTarget, setManualPaymentTarget] = useState<{ memberId: string; userId: string; name: string; amountDue: number } | null>(null);
+  const [manualPaymentError, setManualPaymentError] = useState("");
 
   const membersByUser = useMemo(
     () => new Map(initial?.members.map((member) => [member.userId, member]) ?? []),
@@ -57,6 +67,12 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     const nextSlots = { ...slots };
     if (isSelected) delete nextSlots[userId];
     else nextSlots[userId] = 1;
+    setMemberNotes((current) => {
+      const next = { ...current };
+      if (isSelected) delete next[userId];
+      else next[userId] = "";
+      return next;
+    });
     setSelectedIds(nextIds);
     setSlots(nextSlots);
     distributeEvenly(nextIds, totalAmount, nextSlots);
@@ -114,14 +130,30 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
         totalAmount,
         defaultWaterAmount,
         status,
-        adjustmentReason,
-        members: selectedIds.map((userId) => ({ userId, slots: slots[userId] ?? 1, amountDue: amounts[userId] ?? 0 })),
+        members: selectedIds.map((userId) => ({ userId, slots: slots[userId] ?? 1, amountDue: amounts[userId] ?? 0, note: memberNotes[userId] ?? "" })),
       });
       if (result.status === "error") {
         setError(result.message);
         return;
       }
-      router.push("/collections");
+      router.push("/admin/collections");
+      router.refresh();
+    });
+  }
+
+  function confirmManualPayment() {
+    if (!manualPaymentTarget) return;
+    const target = manualPaymentTarget;
+    setManualPaymentError("");
+    startTransition(async () => {
+      const result = await markMemberPaidManually(target.memberId);
+      if (result.status === "error") {
+        setManualPaymentError(result.message);
+        return;
+      }
+      setPaidAmounts((current) => ({ ...current, [target.userId]: result.amountPaid }));
+      setManualPaidUsers((current) => ({ ...current, [target.userId]: Boolean(result.manualPaidAt) }));
+      setManualPaymentTarget(null);
       router.refresh();
     });
   }
@@ -165,9 +197,9 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
-                    <td><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><strong>{user.name}</strong></td>
+                    <td><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><div className="preview-member-identity"><strong>{user.name}</strong>{memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
                     <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td>
-                    <td>{formatVnd(membersByUser.get(user.id)?.amountPaid ?? 0)}</td>
+                    <td><div className="preview-paid-value"><strong>{formatVnd(paidAmounts[user.id] ?? 0)}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
                   </tr>
                 ))}
@@ -202,7 +234,6 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
             <div className="field-group full-field"><label htmlFor="total-amount">Tổng tiền</label><div className="money-input"><input id="total-amount" type="text" inputMode="numeric" value={formatMoneyInput(totalAmount)} onChange={(event) => changeTotal(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div></div>
             <div className="field-group full-field"><label htmlFor="water-amount">Tiền nước gợi ý</label><div className="money-input"><input id="water-amount" type="text" inputMode="numeric" value={formatMoneyInput(defaultWaterAmount)} onChange={(event) => setDefaultWaterAmount(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div><small className="field-hint">Client sẽ thấy số tiền này khi tích “Có uống nước” và có thể sửa lại.</small></div>
             <div className="field-group full-field"><label htmlFor="collection-note">Ghi chú</label><textarea id="collection-note" className="plain-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Thông tin thêm về buổi bóng..." maxLength={500} /></div>
-            {initial?.status === "PUBLISHED" ? <div className="field-group full-field"><label htmlFor="adjustment-reason">Lý do điều chỉnh</label><input id="adjustment-reason" className="plain-input" value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="Ví dụ: Bổ sung tiền nước" maxLength={200} /></div> : null}
           </div>
         </section>
 
@@ -231,34 +262,90 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
       {selectedIds.length ? (
         <section className="panel allocation-panel">
           <div className="allocation-heading">
-            <div><p className="eyebrow">PHÂN BỔ CHI PHÍ</p><h2>Chỉnh slot và số tiền</h2><p>{totalSlots} slot · <strong>{formatVnd(amountPerSlot)}</strong>/slot, đã làm tròn lên 1.000đ.</p></div>
+            <div><p className="eyebrow">PHÂN BỔ CHI PHÍ</p><h2>Chỉnh slot và số tiền</h2><p>{totalSlots} slot · <strong>{formatVnd(amountPerSlot)}</strong>/slot</p></div>
             <button className="recalculate-button" type="button" onClick={() => distributeEvenly(selectedIds, totalAmount)}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
               Chia đều lại
             </button>
           </div>
           <div className="allocation-list">
-            {selectedUsers.map((user, index) => (
+            <div className="allocation-columns" aria-hidden="true"><span>Người tham gia</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
+            {selectedUsers.map((user, index) => {
+              const member = membersByUser.get(user.id);
+              const amountPaid = paidAmounts[user.id] ?? 0;
+              const amountDue = amounts[user.id] ?? 0;
+              const paymentState = amountPaid <= 0 ? "unpaid" : amountPaid >= amountDue ? "paid" : "partial";
+              return (
               <div className="allocation-row" key={user.id}>
-                <div className="allocation-user"><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><div><strong>{user.name}</strong><small>{membersByUser.get(user.id)?.amountPaid ? `Đã trả ${formatVnd(membersByUser.get(user.id)!.amountPaid)}` : "Chưa thanh toán"}</small></div></div>
-                <div className="allocation-controls">
+                <div className="allocation-user"><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><div><strong>{user.name}</strong><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small></div></div>
+                <div className={`allocation-paid ${paymentState}`}>
+                  <small className="allocation-cell-label">Đã trả</small>
+                  <strong>{formatVnd(amountPaid)}</strong>
+                  <div className="allocation-payment-badges">
+                    <span className="payment-state-badge">{paymentState === "paid" ? "Đã đủ" : paymentState === "partial" ? "Một phần" : "Chưa trả"}</span>
+                    {manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}
+                  </div>
+                  {initial?.status !== "DRAFT" && member && paymentState !== "paid" ? (
+                    <button
+                      className="manual-paid-button"
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        setManualPaymentError("");
+                        setManualPaymentTarget({ memberId: member.id, userId: user.id, name: user.name, amountDue });
+                      }}
+                    >
+                      Đã thanh toán thủ công
+                    </button>
+                  ) : null}
+                </div>
+                <div className="allocation-slot-cell">
+                  <small className="allocation-cell-label">Số slot</small>
                   <div className="slot-stepper" aria-label={`Số slot của ${user.name}`}>
                     <button type="button" aria-label={`Giảm slot của ${user.name}`} disabled={(slots[user.id] ?? 1) <= 1} onClick={() => changeSlots(user.id, -1)}>−</button>
                     <span><strong>{slots[user.id] ?? 1}</strong><small>slot</small></span>
                     <button type="button" aria-label={`Tăng slot của ${user.name}`} onClick={() => changeSlots(user.id, 1)}>+</button>
                   </div>
+                </div>
+                <div className="allocation-due-cell">
+                  <small className="allocation-cell-label">Phải đóng</small>
                   <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>
                 </div>
+                <label className="allocation-note-cell"><span>Ghi chú cho {user.name}</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="Ví dụ: Bổ sung tiền áo, miễn tiền nước..." maxLength={500} /></label>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="allocation-total"><span>Tổng đã phân bổ</span><strong>{formatVnd(allocatedAmount)}</strong><em className={difference === 0 ? "balanced" : ""}>{difference === 0 ? "Đã khớp" : `Chênh ${difference > 0 ? "+" : ""}${formatVnd(difference)}`}</em></div>
         </section>
       ) : null}
 
       {error ? <div className="editor-error" role="alert">! {error}</div> : null}
+      {manualPaymentTarget ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !isPending) setManualPaymentTarget(null);
+        }}>
+          <section className="dialog-card manual-payment-dialog" role="dialog" aria-modal="true" aria-labelledby="manual-payment-title">
+            <button className="dialog-close" type="button" aria-label="Đóng" disabled={isPending} onClick={() => setManualPaymentTarget(null)}>×</button>
+            <div className="manual-payment-heading">
+              <span aria-hidden="true">✓</span>
+              <div>
+                <h2 id="manual-payment-title">Xác nhận tiền mặt</h2>
+                <p>{manualPaymentTarget.name}</p>
+              </div>
+            </div>
+            <div className="manual-payment-amount"><span>Số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.amountDue)}</strong></div>
+            <p className="manual-payment-note">Mã QR đang chờ sẽ tự động được hủy.</p>
+            {manualPaymentError ? <div className="editor-error manual-payment-error" role="alert">! {manualPaymentError}</div> : null}
+            <div className="dialog-actions">
+              <button className="secondary-button" type="button" disabled={isPending} onClick={() => setManualPaymentTarget(null)}>Hủy</button>
+              <button className="primary-button" type="button" disabled={isPending} onClick={confirmManualPayment}>{isPending ? "Đang ghi nhận..." : "Xác nhận"}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       <div className="editor-footer">
-        <Link className="secondary-button" href="/collections">Hủy</Link>
+        <Link className="secondary-button" href="/admin/collections">Hủy</Link>
         <div>
           {initial?.status !== "PUBLISHED" ? <button className="secondary-button" type="button" disabled={isPending} onClick={() => save("DRAFT")}>Lưu bản nháp</button> : null}
           <button className="primary-button preview-button" type="button" onClick={openPreview}>Xem trước <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></button>

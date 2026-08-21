@@ -3,6 +3,10 @@
 import { randomBytes } from "node:crypto";
 import { getPrisma } from "@/lib/prisma";
 
+function generatePaymentCode() {
+  return `PAY${randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
 export type PaymentRequestResult =
   | {
       status: "success";
@@ -72,8 +76,6 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
         },
       },
     });
-    if (existing) return serializeRequest(existing, true);
-
     const members = await prisma.sessionMember.findMany({
       where: {
         id: { in: [...waterByMember.keys()] },
@@ -100,15 +102,49 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     const expectedAmount = items.reduce((sum, item) => sum + item.expectedAmount, 0);
     if (!expectedAmount) return { status: "error", message: "Các khoản của bạn đã được thanh toán." };
 
-    const code = `PAY-${randomBytes(4).toString("hex").toUpperCase()}`;
-    const request = await prisma.$transaction(async (transaction) => {
-      for (const item of items) {
-        await transaction.sessionMember.update({
-          where: { id: item.sessionMemberId },
-          data: { waterAmount: item.waterAmount },
+    if (existing) {
+      const oldItems = new Map(existing.items.map((item) => [item.sessionMemberId, item]));
+      const sameSnapshot = /^PAY[A-F0-9]{8}$/.test(existing.code)
+        && existing.expectedAmount === expectedAmount
+        && existing.items.length === items.length
+        && items.every((item) => {
+          const oldItem = oldItems.get(item.sessionMemberId);
+          return oldItem?.footballAmount === item.footballAmount
+            && oldItem.waterAmount === item.waterAmount
+            && oldItem.expectedAmount === item.expectedAmount;
         });
-      }
 
+      if (sameSnapshot) return serializeRequest(existing, true);
+
+      const code = generatePaymentCode();
+      const newRequest = await prisma.$transaction(async (transaction) => {
+        const cancelled = await transaction.paymentRequest.updateMany({
+          where: { id: existing.id, status: "PENDING" },
+          data: { status: "CANCELLED", processedAt: new Date() },
+        });
+        if (!cancelled.count) throw new Error("PAYMENT_REQUEST_NOT_PENDING");
+
+        return transaction.paymentRequest.create({
+          data: {
+            userId: input.userId,
+            code,
+            expectedAmount,
+            items: { create: items },
+          },
+          include: {
+            items: {
+              orderBy: { sessionMember: { session: { playedAt: "asc" } } },
+              include: { sessionMember: { include: { session: true } } },
+            },
+          },
+        });
+      });
+
+      return serializeRequest(newRequest, false);
+    }
+
+    const code = generatePaymentCode();
+    const request = await prisma.$transaction(async (transaction) => {
       return transaction.paymentRequest.create({
         data: {
           userId: input.userId,
@@ -127,6 +163,9 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
 
     return serializeRequest(request, false);
   } catch (error) {
+    if (error instanceof Error && error.message === "PAYMENT_REQUEST_NOT_PENDING") {
+      return { status: "error", message: "Giao dịch vừa được xử lý. Vui lòng tải lại trang." };
+    }
     console.error("Không thể tạo payment request:", error);
     return { status: "error", message: "Không thể tạo mã thanh toán. Vui lòng thử lại." };
   }
