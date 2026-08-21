@@ -84,6 +84,10 @@ try {
     [[ids.exact, ids.under, ids.over, ids.cancelled]],
   );
   const member = await pool.query(`SELECT "amountPaid" FROM ${table("SessionMember")} WHERE "id" = $1`, [ids.member]);
+  const webhookLogs = await pool.query(
+    `SELECT "status", "request"->>'code' AS "code" FROM ${table("WebhookLog")} WHERE "request"->>'code' = ANY($1::text[]) ORDER BY "createdAt"`,
+    [Object.values(codes)],
+  );
 
   const valid = results.exact.body.payment?.status === "PAID"
     && results.duplicate.body.payment?.duplicate === true
@@ -94,11 +98,15 @@ try {
     && polling.under.body.payment?.status === "UNDERPAID"
     && polling.over.body.payment?.status === "OVERPAID"
     && polling.cancelled.body.payment?.status === "REVIEW_REQUIRED"
-    && member.rows[0]?.amountPaid === 1000;
+    && member.rows[0]?.amountPaid === 1000
+    && webhookLogs.rows.length === 5
+    && webhookLogs.rows.filter((log) => log.status === "SUCCESS").length === 4
+    && webhookLogs.rows.filter((log) => log.status === "DUPLICATE").length === 1;
 
-  console.log(JSON.stringify({ valid, results, polling, database: database.rows, amountPaid: member.rows[0]?.amountPaid }, null, 2));
+  console.log(JSON.stringify({ valid, results, polling, database: database.rows, webhookLogs: webhookLogs.rows, amountPaid: member.rows[0]?.amountPaid }, null, 2));
   if (!valid) process.exitCode = 1;
 } finally {
+  await pool.query(`DELETE FROM ${table("WebhookLog")} WHERE "request"->>'code' = ANY($1::text[])`, [Object.values(codes)]).catch(() => {});
   await pool.query(`DELETE FROM ${table("PaymentRequest")} WHERE "id" = ANY($1::text[])`, [[ids.exact, ids.under, ids.over, ids.cancelled]]).catch(() => {});
   await pool.query(`DELETE FROM ${table("FootballSession")} WHERE "id" = $1`, [ids.session]).catch(() => {});
   await pool.query(`DELETE FROM ${table("User")} WHERE "id" = $1`, [ids.user]).catch(() => {});

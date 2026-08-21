@@ -8,7 +8,7 @@ export default async function LoginPage({
   return (
     <main className="login-page">
       <section className="login-card">
-        <div className="login-brand"><span>₫</span><strong>MoneyFlow</strong></div>
+        <div className="login-brand"><strong>MoneyFlow</strong></div>
         <div className="login-heading"><h1>Đăng nhập quản trị</h1><p>Nhập tài khoản admin để tiếp tục.</p></div>
         {error ? <div className="login-error" role="alert">Tài khoản hoặc mật khẩu không đúng.</div> : null}
         <form action="/api/auth/login" method="post" className="login-form">

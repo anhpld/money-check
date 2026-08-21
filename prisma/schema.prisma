@@ -106,3 +106,12 @@ model PaymentRequestItem {
   @@unique([paymentRequestId, sessionMemberId])
   @@index([sessionMemberId])
 }
+
+model WebhookLog {
+  id        String   @id @default(uuid())
+  request   Json
+  status    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ type WebhookBody = {
   // Kept for backward compatibility with the first webhook contract.
   fullContent?: unknown;
 };
+
+type WebhookLogStatus = "SUCCESS" | "DUPLICATE" | "NOT_FOUND" | "INVALID" | "FAILED";
 
 type ProcessedPayment = {
   code: string;
@@ -57,23 +60,56 @@ function responseMessage(status: ProcessedPayment["status"], duplicate: boolean)
   return "Đã nhận webhook.";
 }
 
+async function saveWebhookLog(requestBody: Prisma.InputJsonValue, status: WebhookLogStatus) {
+  try {
+    await getPrisma().webhookLog.create({ data: { request: requestBody, status } });
+  } catch (error) {
+    console.error("Không thể lưu webhook log:", error);
+  }
+}
+
+async function loggedResponse(
+  requestBody: Prisma.InputJsonValue,
+  logStatus: WebhookLogStatus,
+  body: Record<string, unknown>,
+  responseStatus = 200,
+) {
+  await saveWebhookLog(requestBody, logStatus);
+  return NextResponse.json(body, { status: responseStatus });
+}
+
 export async function POST(request: Request) {
-  if (!webhookIsAuthorized(request)) {
-    return NextResponse.json(
-      { success: false, error: "Webhook secret không hợp lệ." },
-      { status: 401 },
+  const rawBody = await request.text();
+  let parsedBody: unknown;
+  let logRequest: Prisma.InputJsonValue;
+
+  try {
+    parsedBody = JSON.parse(rawBody);
+    logRequest = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody)
+      ? parsedBody as Prisma.InputJsonObject
+      : { value: parsedBody as Prisma.InputJsonValue };
+  } catch {
+    logRequest = { raw: rawBody.slice(0, 20_000) };
+    return loggedResponse(
+      logRequest,
+      "INVALID",
+      { success: false, error: "Body phải là JSON hợp lệ." },
+      400,
     );
   }
 
-  let body: WebhookBody;
-  try {
-    body = await request.json() as WebhookBody;
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Body phải là JSON hợp lệ." },
-      { status: 400 },
+  if (!webhookIsAuthorized(request)) {
+    return loggedResponse(
+      logRequest,
+      "INVALID",
+      { success: false, error: "Webhook secret không hợp lệ." },
+      401,
     );
   }
+
+  const body = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody)
+    ? parsedBody as WebhookBody
+    : {};
 
   const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
   const fullContent = typeof body.content === "string"
@@ -87,27 +123,35 @@ export async function POST(request: Request) {
     : parseAmountFromContent(fullContent);
 
   if (!/^PAY[A-F0-9]{8}$/.test(code)) {
-    return NextResponse.json(
+    return loggedResponse(
+      logRequest,
+      "INVALID",
       { success: false, error: "Code không đúng định dạng PAYXXXXXXXX." },
-      { status: 400 },
+      400,
     );
   }
   if (!Number.isSafeInteger(amount) || amount <= 0) {
-    return NextResponse.json(
+    return loggedResponse(
+      logRequest,
+      "INVALID",
       { success: false, error: "Không tìm thấy số tiền hợp lệ trong amount hoặc content." },
-      { status: 400 },
+      400,
     );
   }
   if (!fullContent) {
-    return NextResponse.json(
+    return loggedResponse(
+      logRequest,
+      "INVALID",
       { success: false, error: "Content không được để trống." },
-      { status: 400 },
+      400,
     );
   }
   if (fullContent.length > 10_000) {
-    return NextResponse.json(
+    return loggedResponse(
+      logRequest,
+      "INVALID",
       { success: false, error: "Content vượt quá 10.000 ký tự." },
-      { status: 400 },
+      400,
     );
   }
 
@@ -247,25 +291,33 @@ export async function POST(request: Request) {
     });
 
     if (!result) {
-      return NextResponse.json(
+      return loggedResponse(
+        logRequest,
+        "NOT_FOUND",
         { success: false, error: "Không tìm thấy yêu cầu thanh toán với code này." },
-        { status: 404 },
+        404,
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: responseMessage(result.status, result.duplicate),
-      payment: {
-        ...result,
-        difference: (result.actualAmount ?? 0) - result.expectedAmount,
+    return loggedResponse(
+      logRequest,
+      result.duplicate ? "DUPLICATE" : "SUCCESS",
+      {
+        success: true,
+        message: responseMessage(result.status, result.duplicate),
+        payment: {
+          ...result,
+          difference: (result.actualAmount ?? 0) - result.expectedAmount,
+        },
       },
-    });
+    );
   } catch (error) {
     console.error("Không thể xử lý payment webhook:", error);
-    return NextResponse.json(
+    return loggedResponse(
+      logRequest,
+      "FAILED",
       { success: false, error: "Không thể xử lý webhook." },
-      { status: 500 },
+      500,
     );
   }
 }

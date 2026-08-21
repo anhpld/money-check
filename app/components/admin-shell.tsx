@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type AdminSection = "users" | "collections" | "transactions";
+type AdminSection = "users" | "collections" | "transactions" | "webhooks" | "settings";
 
 function BrandMark() {
   return (
@@ -14,13 +14,14 @@ function BrandMark() {
   );
 }
 
-function SidebarIcon({ type }: { type: "grid" | "users" | "wallet" | "swap" | "hook" }) {
+function SidebarIcon({ type }: { type: "grid" | "users" | "wallet" | "swap" | "hook" | "settings" }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
     wallet: <><path d="M4 6h14a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h13" /><path d="M16 11h6v5h-6a2.5 2.5 0 0 1 0-5Z" /></>,
     swap: <><path d="m7 7-4 4 4 4" /><path d="M3 11h14a4 4 0 0 1 4 4v1" /><path d="m17 17 4-4-4-4" /></>,
     hook: <><path d="M18 8a6 6 0 1 0-7 9.8" /><path d="M14 5h4V1M14 19h4v4" /><path d="M18 5a3 3 0 0 1 3 3v1M18 19a3 3 0 0 0 3-3v-1" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63h.01A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9v.01A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z" /></>,
   };
   return <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[type]}</svg>;
 }
@@ -36,12 +37,13 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
 
         <nav className="main-nav" aria-label="Điều hướng quản trị">
           <p>QUẢN LÝ</p>
-          <a href="#overview"><SidebarIcon type="grid" />Tổng quan</a>
+          <span className="nav-disabled" aria-disabled="true"><SidebarIcon type="grid" />Tổng quan<span className="soon">Chưa dùng</span></span>
           <Link href="/admin" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
           <Link href="/admin/collections" className={active === "collections" ? "active" : undefined}><SidebarIcon type="wallet" />Khoản thu</Link>
           <Link href="/admin/transactions" className={active === "transactions" ? "active" : undefined}><SidebarIcon type="swap" />Giao dịch</Link>
           <p>HỆ THỐNG</p>
-          <a href="#webhook"><SidebarIcon type="hook" />Webhook<span className="soon">Sắp có</span></a>
+          <Link href="/admin/webhook-logs" className={active === "webhooks" ? "active" : undefined}><SidebarIcon type="hook" />Webhook</Link>
+          <Link href="/admin/settings" className={active === "settings" ? "active" : undefined}><SidebarIcon type="settings" />Cài đặt</Link>
         </nav>
 
         <div className="sidebar-footer">
