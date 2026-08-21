@@ -9,6 +9,7 @@ type ClientUserSummary = {
   name: string;
   debtCount: number;
   outstanding: number;
+  recentlyPaid: boolean;
 };
 
 function normalizeSearch(value: string) {
@@ -40,7 +41,13 @@ export function ClientUserList({ users }: { users: ClientUserSummary[] }) {
         {filteredUsers.map((user, index) => (
           <Link className="client-user-card" href={`/client/${user.id}`} key={user.id}>
             <span className={`client-user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span>
-            <span className="client-user-name"><strong>{user.name}</strong><small>{user.debtCount ? `${user.debtCount} buổi chưa thanh toán` : "Không còn khoản nào cần trả"}</small></span>
+            <span className="client-user-name">
+              <span className="client-user-title">
+                <strong>{user.name}</strong>
+                {user.recentlyPaid ? <span className="client-recent-payment">Thanh toán gần đây</span> : null}
+              </span>
+              <small>{user.debtCount ? `${user.debtCount} buổi chưa thanh toán` : "Không còn khoản nào cần trả"}</small>
+            </span>
             <span className={`client-user-debt ${user.debtCount ? "has-debt" : "clear"}`}>
               <strong>{user.debtCount ? formatVnd(user.outstanding) : "Hết nợ"}</strong>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>

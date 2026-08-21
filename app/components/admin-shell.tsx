@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MobileAdminMenu } from "@/app/components/mobile-admin-menu";
 
 type AdminSection = "users" | "collections" | "transactions" | "webhooks" | "settings";
 
@@ -29,6 +30,7 @@ function SidebarIcon({ type }: { type: "grid" | "users" | "wallet" | "swap" | "h
 export function AdminShell({ active, children }: { active: AdminSection; children: ReactNode }) {
   return (
     <div className="admin-shell">
+      <MobileAdminMenu active={active} />
       <aside className="sidebar">
         <Link href="/admin" className="brand" aria-label="MoneyFlow - trang quản trị">
           <BrandMark />

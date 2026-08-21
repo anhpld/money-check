@@ -25,8 +25,8 @@ type Settlement = {
   actualAmount: number | null;
 };
 const PAYMENT_ACCOUNT = "PSP2623210100000214";
-const POLLING_INTERVAL_MS = 2_000;
-const MAX_POLLING_ATTEMPTS = 300;
+const POLLING_INTERVAL_MS = 1_000;
+const MAX_POLLING_ATTEMPTS = 600;
 
 function createDefaultWaterSelections(debts: ClientDebtItem[]) {
   return Object.fromEntries(debts.map((debt) => [debt.sessionMemberId, {

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  RECENT_PAID_USER_COOKIE,
+  RECENT_PAID_USER_COOKIE_MAX_AGE,
+} from "@/lib/client-preference";
 import { getPrisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -21,6 +25,7 @@ export async function GET(
   const payment = await getPrisma().paymentRequest.findUnique({
     where: { code },
     select: {
+      userId: true,
       status: true,
       expectedAmount: true,
       actualAmount: true,
@@ -35,9 +40,22 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(
-    { success: true, payment },
+  const { userId, ...publicPayment } = payment;
+  const response = NextResponse.json(
+    { success: true, payment: publicPayment },
     { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
   );
-}
 
+  if (payment.status === "PAID") {
+    response.cookies.set(RECENT_PAID_USER_COOKIE, userId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/client",
+      maxAge: RECENT_PAID_USER_COOKIE_MAX_AGE,
+      priority: "medium",
+    });
+  }
+
+  return response;
+}
