@@ -1,0 +1,75 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ClientShell } from "@/app/client/client-shell";
+import { PaymentDialog, type ClientDebtItem } from "@/app/client/payment-dialog";
+import { getPrisma } from "@/lib/prisma";
+import { formatVnd } from "@/lib/money";
+
+export const dynamic = "force-dynamic";
+
+export default async function ClientUserPage({ params }: PageProps<"/client/[userId]">) {
+  const { userId } = await params;
+  const user = await getPrisma().user.findUnique({
+    where: { id: userId },
+    include: {
+      sessionMembers: {
+        where: { session: { status: "PUBLISHED" } },
+        orderBy: { session: { playedAt: "desc" } },
+        include: { session: true },
+      },
+      paymentRequests: {
+        where: { status: { in: ["UNDERPAID", "OVERPAID"] } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, code: true, actualAmount: true, expectedAmount: true },
+      },
+    },
+  });
+  if (!user) notFound();
+
+  const debts: ClientDebtItem[] = user.sessionMembers
+    .map((member) => ({
+      sessionMemberId: member.id,
+      title: member.session.title,
+      playedAt: member.session.playedAt.toISOString(),
+      slots: member.slots,
+      footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
+      defaultWaterAmount: member.session.defaultWaterAmount,
+      waterAmount: member.waterAmount,
+      totalOutstanding: Math.max(member.amountDue + (member.waterAmount ?? 0) - member.amountPaid, 0),
+      note: member.session.note,
+    }))
+    .filter((member) => member.totalOutstanding > 0);
+  const outstanding = debts.reduce((sum, debt) => sum + debt.totalOutstanding, 0);
+  const unresolvedPayment = user.paymentRequests[0];
+
+  return (
+    <ClientShell>
+      <main className="client-main client-detail-main">
+        <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>Danh sách thành viên</Link>
+
+        <section className="client-person-heading">
+          <span>{user.name[0]?.toUpperCase()}</span>
+          <div><p className="client-kicker">KHOẢN CẦN THANH TOÁN</p><h1>{user.name}</h1><p>{debts.length ? `${debts.length} buổi còn nợ · ${formatVnd(outstanding)}` : "Không còn khoản nợ nào"}</p></div>
+        </section>
+
+        {unresolvedPayment ? (
+          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Giao dịch {unresolvedPayment.status === "UNDERPAID" ? "thiếu tiền" : "thừa tiền"} đang chờ kiểm tra</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
+        ) : null}
+
+        <section className="client-debt-list">
+          {debts.map((debt) => (
+            <article className="client-debt-card" key={debt.sessionMemberId}>
+              <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+              <div className="debt-info"><h2>{debt.title}</h2><p>{debt.slots} slot{debt.note ? ` · ${debt.note}` : ""}</p>{debt.waterAmount ? <span>Đã khai tiền nước {formatVnd(debt.waterAmount)}</span> : null}</div>
+              <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
+            </article>
+          ))}
+          {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Hẹn gặp bạn ở trận tiếp theo!</p></div> : null}
+        </section>
+
+        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} userName={user.name} debts={debts} /> : null}
+      </main>
+    </ClientShell>
+  );
+}

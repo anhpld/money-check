@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "SessionMember" ADD COLUMN "slots" INTEGER NOT NULL DEFAULT 1;
