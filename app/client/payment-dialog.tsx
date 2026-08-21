@@ -231,7 +231,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 <a
                   className="qr-download-button"
                   href={`/api/payments/${encodeURIComponent(payment.code)}/qr`}
-                  download={`QR-${payment.code}.jpg`}
+                  download={`QR-${payment.code}.png`}
                 >
                   Lưu ảnh QR
                 </a>

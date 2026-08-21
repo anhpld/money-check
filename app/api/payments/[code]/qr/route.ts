@@ -23,7 +23,7 @@ export async function GET(
     return Response.json({ success: false, error: "Không tìm thấy mã thanh toán." }, { status: 404 });
   }
 
-  const qrUrl = new URL(`https://img.vietqr.io/image/momo-${PAYMENT_ACCOUNT}-compact2.jpg`);
+  const qrUrl = new URL(`https://img.vietqr.io/image/momo-${PAYMENT_ACCOUNT}-qr_only.png`);
   qrUrl.searchParams.set("amount", String(payment.expectedAmount));
   qrUrl.searchParams.set("addInfo", code);
 
@@ -40,7 +40,7 @@ export async function GET(
     return new Response(await qrResponse.arrayBuffer(), {
       headers: {
         "Cache-Control": "private, no-store",
-        "Content-Disposition": `attachment; filename="QR-${code}.jpg"`,
+        "Content-Disposition": `attachment; filename="QR-${code}.png"`,
         "Content-Type": contentType,
         "X-Content-Type-Options": "nosniff",
       },
