@@ -24,7 +24,8 @@ type Settlement = {
   expectedAmount: number;
   actualAmount: number | null;
 };
-const PAYMENT_ACCOUNT = "PSP2623210100000214";
+const PAYMENT_BANK_ID = "CAKE";
+const PAYMENT_ACCOUNT = "0978618991";
 const POLLING_INTERVAL_MS = 1_000;
 const MAX_POLLING_ATTEMPTS = 600;
 
@@ -166,7 +167,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
   }
 
   const qrUrl = payment
-    ? `https://img.vietqr.io/image/momo-PSP2623210100000214-compact2.jpg?amount=${payment.expectedAmount}&addInfo=${encodeURIComponent(payment.code)}`
+    ? `https://img.vietqr.io/image/${PAYMENT_BANK_ID}-${PAYMENT_ACCOUNT}-compact2.jpg?amount=${payment.expectedAmount}&addInfo=${encodeURIComponent(payment.code)}`
     : "";
   const settlementIsMismatch = settlement?.status === "UNDERPAID" || settlement?.status === "OVERPAID";
 

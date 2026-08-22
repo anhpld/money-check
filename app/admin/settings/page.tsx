@@ -3,6 +3,7 @@ import { ResetActivityDataButton } from "@/app/admin/settings/reset-activity-dat
 import { DebtReminderButton } from "@/app/admin/settings/debt-reminder-button";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
+import { AndroidStatusCheck } from "@/app/admin/settings/android-status-check";
 import { AdminShell } from "@/app/components/admin-shell";
 import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
 import { getPrisma } from "@/lib/prisma";
@@ -30,6 +31,15 @@ export default async function SettingsPage() {
 
         <section className="panel settings-integration-panel">
           <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
+        </section>
+
+        <section className="panel settings-device-status-panel">
+          <div>
+            <span className="settings-section-label">Android</span>
+            <h2>Trạng thái ứng dụng</h2>
+            <p>Gửi tín hiệu kiểm tra trực tiếp tới ứng dụng Android và chờ phản hồi tối đa 5 giây.</p>
+          </div>
+          <AndroidStatusCheck />
         </section>
 
         <section className="panel settings-user-sync-panel">

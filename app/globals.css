@@ -85,6 +85,23 @@ a { color: inherit; text-decoration: none; }
 .settings-form-message.success { color: var(--brand); }
 .settings-form-message.error { color: #ae4538; }
 .settings-save-button { min-width: 128px; }
+.settings-device-status-panel { display: flex; align-items: center; justify-content: space-between; gap: 28px; margin-bottom: 17px; padding: 25px 27px; }
+.settings-device-status-panel > div { max-width: 520px; }
+.settings-device-status-panel h2 { margin: 0 0 7px; font-size: 18px; }
+.settings-device-status-panel p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.android-status-check { display: flex; min-width: 390px; align-items: flex-end; flex-direction: column; gap: 11px; }
+.android-status-result { display: flex; width: 100%; align-items: flex-start; justify-content: flex-end; gap: 10px; color: var(--muted); text-align: right; }
+.android-status-result > i { width: 10px; height: 10px; flex: 0 0 auto; margin-top: 4px; border-radius: 50%; background: #aab2af; box-shadow: 0 0 0 4px #aab2af1c; }
+.android-status-result > div { display: flex; align-items: flex-end; flex-direction: column; gap: 5px; }
+.android-status-result strong { font-size: 13px; line-height: 1.4; }
+.android-status-result small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.android-status-result.online { color: var(--brand); }
+.android-status-result.online > i { background: #2b9874; box-shadow: 0 0 0 4px #2b98741c; }
+.android-status-result.offline, .android-status-result.error { color: #a7483b; }
+.android-status-result.offline > i, .android-status-result.error > i { background: #c4594b; box-shadow: 0 0 0 4px #c4594b1c; }
+.android-status-result.timeout { color: #956525; }
+.android-status-result.timeout > i { background: #c58a39; box-shadow: 0 0 0 4px #c58a391c; }
+.android-status-button { min-width: 178px; padding: 0 17px; font-size: 13px; }
 .settings-user-sync-panel { margin-bottom: 17px; padding: 25px 27px; }
 .settings-user-sync-form { display: grid; gap: 19px; }
 .settings-user-sync-head > div { max-width: 760px; }
@@ -761,7 +778,11 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .top-add-button { min-width: 150px; }
   .dialog-card { padding: 24px; }
   .dialog-card.manual-payment-dialog { width: min(100%, 380px); padding: 18px; }
-  .settings-danger-zone, .settings-maintenance-zone, .settings-reminder-panel { align-items: stretch; flex-direction: column; padding: 20px; }
+  .settings-danger-zone, .settings-maintenance-zone, .settings-reminder-panel, .settings-device-status-panel { align-items: stretch; flex-direction: column; padding: 20px; }
+  .android-status-check { min-width: 0; align-items: stretch; }
+  .android-status-result { justify-content: flex-start; text-align: left; }
+  .android-status-result > div { align-items: flex-start; }
+  .android-status-button { width: 100%; }
   .settings-reminder-action { width: 100%; align-items: stretch; }
   .settings-reminder-message { max-width: none; text-align: left; }
   .settings-integration-panel, .settings-user-sync-panel { padding: 20px; }

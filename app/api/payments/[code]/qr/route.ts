@@ -2,7 +2,8 @@ import { getPrisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-const PAYMENT_ACCOUNT = "PSP2623210100000214";
+const PAYMENT_BANK_ID = "CAKE";
+const PAYMENT_ACCOUNT = "0978618991";
 
 export async function GET(
   _request: Request,
@@ -23,7 +24,7 @@ export async function GET(
     return Response.json({ success: false, error: "Không tìm thấy mã thanh toán." }, { status: 404 });
   }
 
-  const qrUrl = new URL(`https://img.vietqr.io/image/momo-${PAYMENT_ACCOUNT}-qr_only.png`);
+  const qrUrl = new URL(`https://img.vietqr.io/image/${PAYMENT_BANK_ID}-${PAYMENT_ACCOUNT}-qr_only.png`);
   qrUrl.searchParams.set("amount", String(payment.expectedAmount));
   qrUrl.searchParams.set("addInfo", code);
 

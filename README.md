@@ -18,7 +18,7 @@ Payload:
 {
   "amount": null,
   "code": "PAY3FA91C82",
-  "content": "Số tiền 120.000 ₫, kèm lời nhắn: \"dong PAY3FA91C82.CT tu 0451000400963 toi PSP2623210100000214 tai MoMo\"."
+  "content": "Số tiền 120.000 ₫, kèm lời nhắn: \"dong PAY3FA91C82.CT tu 0451000400963 toi 0978618991 tai CAKE\"."
 }
 ```
 
@@ -35,6 +35,28 @@ Test một mã đang chờ thanh toán:
 
 ```bash
 pnpm test:webhook PAY3FA91C82 120000
+```
+
+## Android status service
+
+Socket server được triển khai ở repository `app-status-socket`. Web cần các biến:
+
+```env
+STATUS_SERVICE_URL="http://app-status-socket:3002"
+STATUS_DEVICE_ID="android-main"
+STATUS_ADMIN_TOKEN="cùng giá trị với app-status-socket"
+```
+
+Hai container phải cùng Docker network:
+
+```bash
+docker network create money-check-network
+```
+
+Khi chạy container web, thêm:
+
+```bash
+--network money-check-network
 ```
 
 ## Getting Started

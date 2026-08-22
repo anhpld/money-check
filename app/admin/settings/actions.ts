@@ -33,6 +33,78 @@ export type SyncUsersResult = {
   details?: string[];
 };
 
+export type AndroidStatusResult = {
+  status: "idle" | "online" | "offline" | "timeout" | "error";
+  message: string;
+  checkedAt?: string;
+  lastSeenAt?: string | null;
+  latencyMs?: number;
+  appVersion?: string | null;
+};
+
+export async function checkAndroidAppStatus(
+  _previousState: AndroidStatusResult,
+): Promise<AndroidStatusResult> {
+  void _previousState;
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+
+  const serviceUrl = process.env.STATUS_SERVICE_URL?.trim() ?? "";
+  const adminToken = process.env.STATUS_ADMIN_TOKEN?.trim() ?? "";
+  const deviceId = process.env.STATUS_DEVICE_ID?.trim() || "android-main";
+  if (!serviceUrl || !adminToken) {
+    return { status: "error", message: "Chưa cấu hình Socket Status Service." };
+  }
+
+  let endpoint;
+  try {
+    const url = new URL(serviceUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("INVALID_PROTOCOL");
+    endpoint = new URL("/devices/check", url).toString();
+  } catch {
+    return { status: "error", message: "STATUS_SERVICE_URL không hợp lệ." };
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deviceId }),
+      signal: AbortSignal.timeout(7_000),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+    if (!response.ok || payload.success !== true) {
+      return { status: "error", message: "Socket Status Service từ chối yêu cầu kiểm tra." };
+    }
+
+    const checkedAt = new Date().toISOString();
+    const lastSeenAt = typeof payload.lastSeenAt === "string" ? payload.lastSeenAt : null;
+    if (payload.status === "online") {
+      return {
+        status: "online",
+        message: "Ứng dụng Android đang hoạt động và phản hồi bình thường.",
+        checkedAt,
+        lastSeenAt,
+        latencyMs: typeof payload.latencyMs === "number" ? payload.latencyMs : undefined,
+        appVersion: typeof payload.appVersion === "string" ? payload.appVersion : null,
+      };
+    }
+    if (payload.status === "offline") {
+      return { status: "offline", message: "Ứng dụng Android không kết nối tới socket.", checkedAt, lastSeenAt };
+    }
+    if (payload.status === "timeout") {
+      return { status: "timeout", message: "Socket còn kết nối nhưng ứng dụng Android không phản hồi trong 5 giây.", checkedAt, lastSeenAt };
+    }
+    return { status: "error", message: "Ứng dụng Android trả về phản hồi không hợp lệ.", checkedAt, lastSeenAt };
+  } catch (error) {
+    console.error("Không thể kiểm tra trạng thái Android:", error);
+    return { status: "error", message: "Không thể kết nối tới Socket Status Service." };
+  }
+}
+
 type ImportedUser = {
   name: string;
   imageUrl: string | null;
