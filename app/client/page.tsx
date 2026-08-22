@@ -10,6 +10,7 @@ export default async function ClientPage() {
   const [cookieStore, users] = await Promise.all([
     cookies(),
     getPrisma().user.findMany({
+      where: { isActive: true },
       orderBy: { name: "asc" },
       include: {
         sessionMembers: {

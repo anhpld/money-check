@@ -112,3 +112,28 @@ export async function deleteUser(id: string): Promise<UserActionResult> {
     return { status: "error", message: "Không thể xóa người dùng. Vui lòng thử lại." };
   }
 }
+
+export async function setUserActive(id: string, isActive: boolean): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!id || typeof isActive !== "boolean") {
+    return { status: "error", message: "Trạng thái người dùng không hợp lệ." };
+  }
+
+  try {
+    const user = await getPrisma().user.update({
+      where: { id },
+      data: { isActive },
+      select: { name: true },
+    });
+    revalidatePath("/admin");
+    revalidatePath("/client");
+    revalidatePath(`/client/${id}`);
+    return {
+      status: "success",
+      message: `${user.name} đã chuyển sang ${isActive ? "Active" : "Inactive"}.`,
+    };
+  } catch (error) {
+    console.error("Không thể cập nhật trạng thái người dùng:", error);
+    return { status: "error", message: "Không thể cập nhật trạng thái người dùng. Vui lòng thử lại." };
+  }
+}

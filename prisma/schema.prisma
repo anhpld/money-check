@@ -11,6 +11,7 @@ model User {
   id              String           @id @default(uuid())
   name            String
   avatarKey       String?
+  isActive        Boolean          @default(true)
   sessionMembers  SessionMember[]
   paymentRequests PaymentRequest[]
 }

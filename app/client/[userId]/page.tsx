@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ClientUserPage({ params }: PageProps<"/client/[userId]">) {
   const { userId } = await params;
-  const user = await getPrisma().user.findUnique({
-    where: { id: userId },
+  const user = await getPrisma().user.findFirst({
+    where: { id: userId, isActive: true },
     include: {
       sessionMembers: {
         where: { session: { status: "PUBLISHED" } },

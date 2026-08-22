@@ -227,6 +227,14 @@ a { color: inherit; text-decoration: none; }
 .list-header { display: flex; min-height: 91px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 24px 27px; }
 .live-badge, .ready-status { display: inline-flex; align-items: center; gap: 6px; border-radius: 14px; background: #f0f6f3; padding: 6px 9px; color: var(--brand); font-size: 9px; font-weight: 700; }
 .live-badge i, .ready-status i { width: 5px; height: 5px; border-radius: 50%; background: #33a27e; box-shadow: 0 0 0 3px #33a27e18; }
+.user-status-toggle { display: inline-flex; min-width: 82px; height: 31px; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 999px; padding: 0 11px; cursor: pointer; font-size: 11px; font-weight: 750; transition: .18s ease; }
+.user-status-toggle i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.user-status-toggle.active { border-color: #c9dfd7; background: #edf7f3; color: var(--brand); }
+.user-status-toggle.inactive { border-color: #d9dddb; background: #f2f4f3; color: #737d79; }
+.user-status-toggle:hover { border-color: currentColor; transform: translateY(-1px); }
+.user-status-toggle:disabled { cursor: wait; opacity: .6; transform: none; }
+.user-row-inactive td { background: #fafbfa; color: #727c78; }
+.user-row-inactive .user-avatar { filter: grayscale(.45); opacity: .72; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th { background: #fafbf9; padding: 11px 22px; color: #929a97; font-size: 9px; font-weight: 750; letter-spacing: .4px; text-align: left; text-transform: uppercase; }

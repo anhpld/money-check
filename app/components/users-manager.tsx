@@ -3,10 +3,10 @@
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { createUser, deleteUser, updateUser, type UserActionResult } from "@/app/actions";
+import { createUser, deleteUser, setUserActive, updateUser, type UserActionResult } from "@/app/actions";
 import { UserAvatar } from "@/app/components/user-avatar";
 
-export type UserItem = { id: string; name: string; avatarKey: string | null };
+export type UserItem = { id: string; name: string; avatarKey: string | null; isActive: boolean };
 
 type DialogState =
   | { type: "add" }
@@ -93,6 +93,10 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
     startTransition(async () => completeAction(await deleteUser(dialog.user.id)));
   }
 
+  function toggleUserStatus(user: UserItem) {
+    startTransition(async () => completeAction(await setUserActive(user.id, !user.isActive)));
+  }
+
   return (
     <>
       <div className="users-toolbar">
@@ -125,10 +129,21 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
               <thead><tr><th>Người dùng</th><th>Mã ID</th><th>Trạng thái</th><th className="actions-heading">Thao tác</th></tr></thead>
               <tbody>
                 {users.map((user, index) => (
-                  <tr key={user.id}>
+                  <tr className={user.isActive ? "" : "user-row-inactive"} key={user.id}>
                     <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><strong>{user.name}</strong></td>
                     <td><code>{user.id.slice(0, 8).toUpperCase()}</code></td>
-                    <td><span className="ready-status"><i /> Hoạt động</span></td>
+                    <td>
+                      <button
+                        className={`user-status-toggle ${user.isActive ? "active" : "inactive"}`}
+                        type="button"
+                        disabled={isPending}
+                        aria-label={`Chuyển ${user.name} sang ${user.isActive ? "Inactive" : "Active"}`}
+                        onClick={() => toggleUserStatus(user)}
+                      >
+                        <i aria-hidden="true" />
+                        {user.isActive ? "Active" : "Inactive"}
+                      </button>
+                    </td>
                     <td className="actions-cell">
                       <button className="icon-button edit" type="button" aria-label={`Sửa ${user.name}`} onClick={() => openDialog({ type: "edit", user })}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 11-11a2 2 0 0 0-3-3l-11 11L4 20Z" /></svg>
