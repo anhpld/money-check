@@ -50,24 +50,45 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>Danh sách thành viên</Link>
 
         <section className="client-person-heading">
-          <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
-          <div><p className="client-kicker">KHOẢN CẦN THANH TOÁN</p><h1>{user.name}</h1><p>{debts.length ? `${debts.length} buổi còn nợ · ${formatVnd(outstanding)}` : "Không còn khoản nợ nào"}</p></div>
+          <div className="client-person-identity">
+            <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
+            <h1>{user.name}</h1>
+          </div>
         </section>
 
         {unresolvedPayment ? (
           <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Đã nhận tiền từ mã thanh toán cũ</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
         ) : null}
 
-        <section className="client-debt-list">
-          {debts.map((debt) => (
-            <article className="client-debt-card" key={debt.sessionMemberId}>
-              <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
-              <div className="debt-info"><h2>{debt.title}</h2>{debt.sessionNote ? <p>{debt.sessionNote}</p> : null}{debt.note ? <span className="member-note">Ghi chú cho bạn: {debt.note}</span> : null}</div>
-              <div className="debt-slots"><span>Slot</span><strong>{debt.slots}</strong></div>
-              <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
-            </article>
-          ))}
-          {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Hẹn gặp bạn ở trận tiếp theo!</p></div> : null}
+        <section className="client-debt-section">
+          <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
+            <div>
+              <h2>Khoản cần thanh toán</h2>
+              <p>{debts.length ? `${debts.length} buổi còn nợ` : "Không còn khoản nợ nào"}</p>
+            </div>
+          </header>
+          {debts.length ? (
+            <div className="client-debt-column-head" aria-hidden="true">
+              <span>Chi tiết buổi</span>
+              <span>Slot</span>
+              <span>Số tiền</span>
+            </div>
+          ) : null}
+          <div className="client-debt-list">
+            {debts.map((debt) => (
+              <article className="client-debt-card" key={debt.sessionMemberId}>
+                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+                <div className="debt-info"><h2>{debt.title}</h2>{debt.sessionNote ? <p>{debt.sessionNote}</p> : null}{debt.note ? <span className="member-note">Ghi chú cho bạn: {debt.note}</span> : null}</div>
+                <div className="debt-slots"><strong>{debt.slots}</strong></div>
+                <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
+              </article>
+            ))}
+            {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Hẹn gặp bạn ở trận tiếp theo!</p></div> : null}
+          </div>
+          <footer className={`client-debt-total ${debts.length ? "has-debt" : "clear"}`}>
+            <span>{debts.length ? "Tổng" : "Trạng thái"}</span>
+            <strong>{debts.length ? formatVnd(outstanding) : "Hết nợ"}</strong>
+          </footer>
         </section>
 
         {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : null}
