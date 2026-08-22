@@ -1,4 +1,5 @@
 import { ResetDataButton } from "@/app/admin/settings/reset-data-button";
+import { ResetActivityDataButton } from "@/app/admin/settings/reset-activity-data-button";
 import { DebtReminderButton } from "@/app/admin/settings/debt-reminder-button";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
@@ -42,6 +43,15 @@ export default async function SettingsPage() {
             <p>Gộp các thành viên theo số buổi còn nợ và gửi một tin nhắn vào group Messenger.</p>
           </div>
           <DebtReminderButton configured={messengerConfigured} />
+        </section>
+
+        <section className="panel settings-maintenance-zone">
+          <div>
+            <span className="settings-section-label">Dọn dữ liệu</span>
+            <h2>Reset dữ liệu, giữ người dùng</h2>
+            <p>Xóa toàn bộ khoản thu, giao dịch và webhook log nhưng giữ nguyên danh sách user, avatar và cấu hình hệ thống.</p>
+          </div>
+          <ResetActivityDataButton />
         </section>
 
         <section className="panel settings-danger-zone">

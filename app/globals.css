@@ -113,6 +113,10 @@ a { color: inherit; text-decoration: none; }
 .settings-reminder-message { max-width: 300px; margin: 0; font-size: 12px; font-weight: 650; line-height: 1.45; text-align: right; }
 .settings-reminder-message.success { color: var(--brand); }
 .settings-reminder-message.error { color: #ae4538; }
+.settings-maintenance-zone { display: flex; align-items: center; justify-content: space-between; gap: 28px; margin-bottom: 17px; border-color: #e5dcc7; padding: 25px 27px; }
+.settings-maintenance-zone > div { max-width: 650px; }
+.settings-maintenance-zone h2 { margin: 0 0 7px; font-size: 18px; }
+.settings-maintenance-zone p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .settings-danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 28px; border-color: #efd4cf; padding: 25px 27px; }
 .settings-danger-zone > div { max-width: 650px; }
 .settings-danger-label { display: inline-flex; margin-bottom: 9px; border-radius: 12px; background: #fff0ed; padding: 4px 8px; color: #b44838; font-size: 8px; font-weight: 800; text-transform: uppercase; }
@@ -120,10 +124,13 @@ a { color: inherit; text-decoration: none; }
 .settings-danger-zone p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
 .settings-reset-button { flex: 0 0 auto; min-height: 41px; border: 1px solid #d86656; border-radius: 9px; background: #fff; padding: 0 15px; color: #b33f31; cursor: pointer; font-size: 10px; font-weight: 750; }
 .settings-reset-button:hover { background: #fff3f1; }
+.settings-reset-button.secondary-reset { border-color: #c99c54; color: #8b6228; font-size: 12px; }
+.settings-reset-button.secondary-reset:hover { background: #fff8ec; }
 .settings-reset-action { display: flex; flex: 0 0 auto; align-items: stretch; flex-direction: column; }
 .settings-success { margin-bottom: 10px; border-radius: 9px; background: var(--brand-soft); padding: 9px 11px; color: var(--brand); font-size: 9px; font-weight: 700; }
 .dialog-card.settings-reset-dialog { width: min(100%, 410px); max-width: 410px; padding: 23px; }
 .settings-reset-icon { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 11px; background: #fff0ed; color: #b44838; font-size: 18px; font-weight: 850; }
+.settings-reset-icon.secondary { background: #fff5e3; color: #9a6824; }
 .settings-reset-heading { margin: 14px 0 18px; }
 .settings-reset-heading h2 { margin: 0 0 6px; font-size: 19px; letter-spacing: -.4px; }
 .settings-reset-heading p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
@@ -754,7 +761,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .top-add-button { min-width: 150px; }
   .dialog-card { padding: 24px; }
   .dialog-card.manual-payment-dialog { width: min(100%, 380px); padding: 18px; }
-  .settings-danger-zone, .settings-reminder-panel { align-items: stretch; flex-direction: column; padding: 20px; }
+  .settings-danger-zone, .settings-maintenance-zone, .settings-reminder-panel { align-items: stretch; flex-direction: column; padding: 20px; }
   .settings-reminder-action { width: 100%; align-items: stretch; }
   .settings-reminder-message { max-width: none; text-align: left; }
   .settings-integration-panel, .settings-user-sync-panel { padding: 20px; }

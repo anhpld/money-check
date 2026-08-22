@@ -363,3 +363,32 @@ export async function resetApplicationData(confirmation: string): Promise<ResetD
     return { status: "error", message: "Không thể reset dữ liệu. Vui lòng thử lại." };
   }
 }
+
+export async function resetActivityData(confirmation: string): Promise<ResetDataResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (confirmation !== "RESET") return { status: "error", message: "Vui lòng nhập đúng RESET để xác nhận." };
+
+  try {
+    const prisma = getPrisma();
+    const [webhookLogs, payments, sessions] = await prisma.$transaction([
+      prisma.webhookLog.deleteMany(),
+      prisma.paymentRequest.deleteMany(),
+      prisma.footballSession.deleteMany(),
+    ]);
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/collections");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/webhook-logs");
+    revalidatePath("/admin/settings");
+    revalidatePath("/client");
+
+    return {
+      status: "success",
+      message: `Đã xóa ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log. User và setting được giữ nguyên.`,
+    };
+  } catch (error) {
+    console.error("Không thể reset dữ liệu thu chi:", error);
+    return { status: "error", message: "Không thể reset dữ liệu thu chi. Vui lòng thử lại." };
+  }
+}
