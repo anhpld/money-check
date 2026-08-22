@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClientShell } from "@/app/client/client-shell";
 import { PaymentDialog, type ClientDebtItem } from "@/app/client/payment-dialog";
+import { UserAvatar } from "@/app/components/user-avatar";
 import { getPrisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/money";
 
@@ -49,7 +50,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>Danh sách thành viên</Link>
 
         <section className="client-person-heading">
-          <span>{user.name[0]?.toUpperCase()}</span>
+          <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
           <div><p className="client-kicker">KHOẢN CẦN THANH TOÁN</p><h1>{user.name}</h1><p>{debts.length ? `${debts.length} buổi còn nợ · ${formatVnd(outstanding)}` : "Không còn khoản nợ nào"}</p></div>
         </section>
 

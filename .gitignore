@@ -40,6 +40,9 @@ yarn-error.log*
 # local visual test artifacts
 /.tmp
 
+# uploaded files
+/storage/
+
 # vercel
 .vercel
 

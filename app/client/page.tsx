@@ -25,6 +25,7 @@ export default async function ClientPage() {
     return {
       id: user.id,
       name: user.name,
+      avatarKey: user.avatarKey,
       debtCount: debts.filter((amount) => amount > 0).length,
       outstanding: debts.reduce((sum, amount) => sum + amount, 0),
       recentlyPaid: user.id === recentPaidUserId,

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { UserAvatar } from "@/app/components/user-avatar";
 import { formatVnd } from "@/lib/money";
 
 type ClientUserSummary = {
   id: string;
   name: string;
+  avatarKey: string | null;
   debtCount: number;
   outstanding: number;
   recentlyPaid: boolean;
@@ -40,7 +42,7 @@ export function ClientUserList({ users }: { users: ClientUserSummary[] }) {
       <section className="client-user-list" aria-label="Danh sách người dùng">
         {filteredUsers.map((user, index) => (
           <Link className="client-user-card" href={`/client/${user.id}`} key={user.id}>
-            <span className={`client-user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span>
+            <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-user-avatar" toneIndex={index} />
             <span className="client-user-name">
               <span className="client-user-title">
                 <strong>{user.name}</strong>

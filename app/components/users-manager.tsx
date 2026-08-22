@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createUser, deleteUser, updateUser, type UserActionResult } from "@/app/actions";
+import { UserAvatar } from "@/app/components/user-avatar";
 
-export type UserItem = { id: string; name: string };
+export type UserItem = { id: string; name: string; avatarKey: string | null };
 
 type DialogState =
   | { type: "add" }
@@ -16,7 +18,13 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>(null);
   const [feedback, setFeedback] = useState<UserActionResult | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => () => {
+    if (avatarPreview?.startsWith("blob:")) URL.revokeObjectURL(avatarPreview);
+  }, [avatarPreview]);
 
   useEffect(() => {
     if (!dialog) return;
@@ -24,7 +32,7 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) setDialog(null);
+      if (event.key === "Escape" && !isPending) closeDialog();
     };
     window.addEventListener("keydown", closeOnEscape);
 
@@ -40,10 +48,30 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
     return () => window.clearTimeout(timeout);
   }, [feedback]);
 
+  function openDialog(nextDialog: Exclude<DialogState, null>) {
+    setRemoveAvatar(false);
+    setAvatarPreview(nextDialog.type === "edit" && nextDialog.user.avatarKey
+      ? `/api/avatars/${encodeURIComponent(nextDialog.user.avatarKey)}`
+      : null);
+    setDialog(nextDialog);
+  }
+
+  function closeDialog() {
+    setDialog(null);
+    setAvatarPreview(null);
+    setRemoveAvatar(false);
+  }
+
+  function previewAvatar(file: File | undefined) {
+    if (!file) return;
+    setRemoveAvatar(false);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
   function completeAction(result: UserActionResult) {
     setFeedback(result);
     if (result.status === "success") {
-      setDialog(null);
+      closeDialog();
       router.refresh();
     }
   }
@@ -72,7 +100,7 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
           <span>Tổng người dùng</span>
           <strong>{users.length.toString().padStart(2, "0")}</strong>
         </div>
-        <button className="primary-button top-add-button" type="button" onClick={() => setDialog({ type: "add" })}>
+        <button className="primary-button top-add-button" type="button" onClick={() => openDialog({ type: "add" })}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Thêm người dùng
         </button>
@@ -98,14 +126,14 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
               <tbody>
                 {users.map((user, index) => (
                   <tr key={user.id}>
-                    <td><span className={`user-avatar tone-${index % 5}`}>{user.name.slice(0, 1).toUpperCase()}</span><strong>{user.name}</strong></td>
+                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><strong>{user.name}</strong></td>
                     <td><code>{user.id.slice(0, 8).toUpperCase()}</code></td>
                     <td><span className="ready-status"><i /> Hoạt động</span></td>
                     <td className="actions-cell">
-                      <button className="icon-button edit" type="button" aria-label={`Sửa ${user.name}`} onClick={() => setDialog({ type: "edit", user })}>
+                      <button className="icon-button edit" type="button" aria-label={`Sửa ${user.name}`} onClick={() => openDialog({ type: "edit", user })}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 11-11a2 2 0 0 0-3-3l-11 11L4 20Z" /></svg>
                       </button>
-                      <button className="icon-button delete" type="button" aria-label={`Xóa ${user.name}`} onClick={() => setDialog({ type: "delete", user })}>
+                      <button className="icon-button delete" type="button" aria-label={`Xóa ${user.name}`} onClick={() => openDialog({ type: "delete", user })}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
                       </button>
                     </td>
@@ -133,7 +161,7 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
 
       {dialog ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !isPending) setDialog(null);
+          if (event.target === event.currentTarget && !isPending) closeDialog();
         }}>
           <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="user-dialog-title">
             {dialog.type !== "add" ? (
@@ -153,13 +181,13 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
               <p>
                 {dialog.type === "delete"
                   ? <>Bạn có chắc muốn xóa <strong>{dialog.user.name}</strong>? Thao tác này không thể hoàn tác.</>
-                  : dialog.type === "edit" ? "Cập nhật họ tên của người dùng." : "Nhập họ tên để thêm vào danh sách."}
+                  : dialog.type === "edit" ? "Cập nhật họ tên và ảnh đại diện của người dùng." : "Nhập họ tên và chọn ảnh đại diện nếu có."}
               </p>
             </div>
 
             {dialog.type === "delete" ? (
               <div className="dialog-actions">
-                <button className="secondary-button" type="button" disabled={isPending} onClick={() => setDialog(null)}>Hủy</button>
+                <button className="secondary-button" type="button" disabled={isPending} onClick={closeDialog}>Hủy</button>
                 <button className="danger-button" type="button" disabled={isPending} onClick={confirmDelete}>
                   {isPending ? <span className="spinner" aria-hidden="true" /> : null}
                   {isPending ? "Đang xóa..." : "Xóa người dùng"}
@@ -175,8 +203,52 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
                     <input id="dialog-name" name="name" type="text" minLength={2} maxLength={80} defaultValue={dialog.type === "edit" ? dialog.user.name : ""} placeholder="Ví dụ: Nguyễn Văn An" autoComplete="name" autoFocus required />
                   </div>
                 </div>
+                <div className="field-group">
+                  <label>Ảnh đại diện <span className="optional-label">(không bắt buộc)</span></label>
+                  <div className="avatar-upload-field">
+                    <span className={`avatar-upload-preview ${avatarPreview ? "has-image" : ""}`}>
+                      {avatarPreview ? (
+                        <Image src={avatarPreview} alt="Ảnh đại diện xem trước" width={72} height={72} unoptimized />
+                      ) : (dialog.type === "edit" ? dialog.user.name : "?").slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="avatar-upload-controls">
+                      <label className="avatar-file-button" htmlFor="dialog-avatar">
+                        {avatarPreview ? "Chọn ảnh khác" : "Chọn ảnh"}
+                      </label>
+                      <input
+                        className="avatar-file-input"
+                        id="dialog-avatar"
+                        name="avatar"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(event) => previewAvatar(event.target.files?.[0])}
+                      />
+                      <small>JPG, PNG hoặc WebP · tối đa 2 MB</small>
+                      {dialog.type === "edit" && (dialog.user.avatarKey || avatarPreview || removeAvatar) ? (
+                        <label className="avatar-remove-option">
+                          <input
+                            type="checkbox"
+                            name="removeAvatar"
+                            value="true"
+                            checked={removeAvatar}
+                            onChange={(event) => {
+                              setRemoveAvatar(event.target.checked);
+                              if (event.target.checked) {
+                                const fileInput = document.getElementById("dialog-avatar") as HTMLInputElement | null;
+                                if (fileInput) fileInput.value = "";
+                                setAvatarPreview(null);
+                              }
+                              else if (dialog.user.avatarKey) setAvatarPreview(`/api/avatars/${encodeURIComponent(dialog.user.avatarKey)}`);
+                            }}
+                          />
+                          Không dùng ảnh đại diện
+                        </label>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <div className="dialog-actions">
-                  <button className="secondary-button" type="button" disabled={isPending} onClick={() => setDialog(null)}>Hủy</button>
+                  <button className="secondary-button" type="button" disabled={isPending} onClick={closeDialog}>Hủy</button>
                   <button className="primary-button dialog-submit" type="submit" disabled={isPending}>
                     {isPending ? <span className="spinner" aria-hidden="true" /> : null}
                     {isPending ? "Đang lưu..." : dialog.type === "edit" ? "Lưu thay đổi" : "Thêm người dùng"}

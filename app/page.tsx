@@ -8,7 +8,7 @@ async function getUsers(): Promise<{ users: UserItem[]; databaseError: boolean }
   try {
     const users = await getPrisma().user.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, avatarKey: true },
     });
     return { users, databaseError: false };
   } catch (error) {
