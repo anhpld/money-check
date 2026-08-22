@@ -185,7 +185,6 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
           <span>Chi tiết buổi</span>
           <span>Slot</span>
           <span>Tiền bóng</span>
-          <span>Tiền nước</span>
         </div>
         <div className="client-debt-list">
           {debts.map((debt) => {
@@ -200,25 +199,30 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 </div>
                 <div className="debt-slots"><strong>{debt.slots}</strong></div>
                 <strong className="debt-amount">{formatVnd(debt.footballAmount)}</strong>
-                <div className="debt-water-control">
-                  <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Có nước</span></label>
-                  {selection?.included ? (
-                    <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
-                  ) : <span className="water-cost-empty">0 đ</span>}
+                <div className="debt-extra-options">
+                  <span className="debt-options-label">Tùy chọn</span>
+                  <div className="debt-water-control">
+                    <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Có nước</span></label>
+                    {selection?.included ? (
+                      <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
+                    ) : <span className="water-cost-empty">0 đ</span>}
+                  </div>
                 </div>
               </article>
             );
           })}
         </div>
-        <footer className="client-debt-total has-debt">
-          <span>Tổng thanh toán</span>
-          <strong>{formatVnd(reviewTotal)}</strong>
-        </footer>
-        <div className="client-debt-action">
-          {error ? <div className="client-error" role="alert">! {error}</div> : null}
-          <button className="generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
-            {isPending ? <span className="spinner" /> : null}{isPending ? "Đang tạo mã..." : "Hiện QR thanh toán"}
-          </button>
+        {error ? <div className="client-error client-payment-error" role="alert">! {error}</div> : null}
+        <div className="client-debt-checkout">
+          <footer className="client-debt-total has-debt">
+            <span>Tổng thanh toán</span>
+            <strong>{formatVnd(reviewTotal)}</strong>
+          </footer>
+          <div className="client-debt-action">
+            <button className="generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
+              {isPending ? <span className="spinner" /> : null}{isPending ? "Đang tạo mã..." : "Thanh toán"}
+            </button>
+          </div>
         </div>
       </section>
 

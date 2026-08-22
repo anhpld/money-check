@@ -47,21 +47,23 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
   return (
     <ClientShell>
       <main className="client-main client-detail-main">
-        <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>Danh sách thành viên</Link>
+        <div className="client-detail-header">
+          <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg><span>Danh sách thành viên</span></Link>
 
-        <section className="client-person-heading">
-          <div className="client-person-identity">
-            <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
-            <h1>{user.name}</h1>
-          </div>
-        </section>
+          <section className="client-person-heading">
+            <div className="client-person-identity">
+              <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
+              <h1>{user.name}</h1>
+            </div>
+          </section>
+        </div>
 
         {unresolvedPayment ? (
           <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Đã nhận tiền từ mã thanh toán cũ</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
         ) : null}
 
         {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : (
-          <section className="client-debt-section">
+          <section className={`client-debt-section ${debts.length ? "has-debt" : "is-clear"}`}>
           <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
             <div>
               <h2>Khoản cần thanh toán</h2>
