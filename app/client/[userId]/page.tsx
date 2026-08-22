@@ -60,7 +60,8 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
           <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Đã nhận tiền từ mã thanh toán cũ</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
         ) : null}
 
-        <section className="client-debt-section">
+        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : (
+          <section className="client-debt-section">
           <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
             <div>
               <h2>Khoản cần thanh toán</h2>
@@ -89,9 +90,8 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
             <span>{debts.length ? "Tổng" : "Trạng thái"}</span>
             <strong>{debts.length ? formatVnd(outstanding) : "Hết nợ"}</strong>
           </footer>
-        </section>
-
-        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : null}
+          </section>
+        )}
       </main>
     </ClientShell>
   );

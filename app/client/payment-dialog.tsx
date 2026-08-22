@@ -143,6 +143,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
       setSettlement(null);
       setPollingTimedOut(false);
       setPayment(result.request);
+      setOpen(true);
     });
   }
 
@@ -173,14 +174,57 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
 
   return (
     <>
-      <button className="client-pay-all" type="button" onClick={() => setOpen(true)}>
-        Trả tất cả
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-      </button>
+      <section className="client-debt-section payment-enabled">
+        <header className="client-debt-overview has-debt">
+          <div>
+            <h2>Khoản cần thanh toán</h2>
+            <p>{debts.length} buổi còn nợ · Tích nước nếu có uống</p>
+          </div>
+        </header>
+        <div className="client-debt-column-head" aria-hidden="true">
+          <span>Chi tiết buổi</span>
+          <span>Slot</span>
+          <span>Tiền bóng</span>
+          <span>Tiền nước</span>
+        </div>
+        <div className="client-debt-list">
+          {debts.map((debt) => {
+            const selection = water[debt.sessionMemberId];
+            return (
+              <article className="client-debt-card" key={debt.sessionMemberId}>
+                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+                <div className="debt-info">
+                  <h2>{debt.title}</h2>
+                  {debt.sessionNote ? <p>{debt.sessionNote}</p> : null}
+                  {debt.note ? <span className="member-note">Ghi chú cho bạn: {debt.note}</span> : null}
+                </div>
+                <div className="debt-slots"><strong>{debt.slots}</strong></div>
+                <strong className="debt-amount">{formatVnd(debt.footballAmount)}</strong>
+                <div className="debt-water-control">
+                  <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Có nước</span></label>
+                  {selection?.included ? (
+                    <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
+                  ) : <span className="water-cost-empty">0 đ</span>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <footer className="client-debt-total has-debt">
+          <span>Tổng thanh toán</span>
+          <strong>{formatVnd(reviewTotal)}</strong>
+        </footer>
+        <div className="client-debt-action">
+          {error ? <div className="client-error" role="alert">! {error}</div> : null}
+          <button className="generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
+            {isPending ? <span className="spinner" /> : null}{isPending ? "Đang tạo mã..." : "Hiện QR thanh toán"}
+          </button>
+        </div>
+      </section>
 
       {open ? (
         <div className="client-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-          <section className={`client-payment-dialog ${payment ? "qr-step" : ""}`} role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title" aria-busy={isPending}>
+          <section className="client-payment-dialog qr-step" role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title" aria-busy={isPending}>
             <button className="client-dialog-close" type="button" aria-label="Đóng" onClick={closeDialog}>×</button>
             {isPending ? (
               <div className="client-api-loading" role="status" aria-live="polite">
@@ -242,42 +286,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 <p className="payment-waiting"><i />{pollingTimedOut ? "Chưa nhận được kết quả. Bạn có thể đóng và kiểm tra lại sau." : "Đang chờ xác nhận thanh toán..."}</p>
                 <p className="qr-note">Vui lòng giữ nguyên số tiền và nội dung để hệ thống tự đối soát.</p>
               </div>
-            ) : (
-              <>
-                <div className="client-dialog-heading compact">
-                  <p className="client-kicker" id="payment-dialog-title">KIỂM TRA TRƯỚC KHI TRẢ</p>
-                </div>
-
-                <div className="water-review-list">
-                  {debts.map((debt) => {
-                    const selection = water[debt.sessionMemberId];
-                    return (
-                      <div className="water-review-item" key={debt.sessionMemberId}>
-                        <div className="water-session-info">
-                          <div className="water-session-heading"><strong>{debt.title}</strong><span>· {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
-                          {debt.note ? <small className="water-member-note">Ghi chú: {debt.note}</small> : null}
-                        </div>
-                        <div className="water-cost-breakdown">
-                          <div className="water-cost-row football-cost"><span>Tiền bóng × {debt.slots} slot</span><strong>{formatVnd(debt.footballAmount)}</strong></div>
-                          <div className="water-cost-row">
-                            <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Tiền nước</span></label>
-                            {selection?.included ? (
-                              <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
-                            ) : <span className="water-cost-empty">0 đ</span>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="client-payment-summary"><span>Tổng thanh toán</span><strong>{formatVnd(reviewTotal)}</strong></div>
-                {error ? <div className="client-error" role="alert">! {error}</div> : null}
-                <button className="generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
-                  {isPending ? <span className="spinner" /> : null}{isPending ? "Đang tạo mã..." : "Xác nhận và tạo QR"}
-                </button>
-              </>
-            )}
+            ) : <div className="qr-loading-placeholder" />}
           </section>
         </div>
       ) : null}
