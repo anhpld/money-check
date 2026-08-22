@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { UserAvatar } from "@/app/components/user-avatar";
 import { markMemberPaidManually, saveCollection } from "@/app/collections/actions";
 import type { CollectionEditorData, CollectionUser } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
@@ -197,7 +198,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
-                    <td><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><div className="preview-member-identity"><strong>{user.name}</strong>{memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
+                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
                     <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td>
                     <td><div className="preview-paid-value"><strong>{formatVnd(paidAmounts[user.id] ?? 0)}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
@@ -248,7 +249,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               return (
                 <label className={`participant-choice ${selected ? "selected" : ""}`} key={user.id}>
                   <input type="checkbox" checked={selected} onChange={() => toggleUser(user.id)} />
-                  <span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span>
+                  <UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} />
                   <span>{user.name}</span>
                   <i>{selected ? "✓" : ""}</i>
                 </label>
@@ -277,7 +278,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               const paymentState = amountPaid <= 0 ? "unpaid" : amountPaid >= amountDue ? "paid" : "partial";
               return (
               <div className="allocation-row" key={user.id}>
-                <div className="allocation-user"><span className={`user-avatar tone-${index % 5}`}>{user.name[0]?.toUpperCase()}</span><div><strong>{user.name}</strong><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small></div></div>
+                <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small></div></div>
                 <div className={`allocation-paid ${paymentState}`}>
                   <small className="allocation-cell-label">Đã trả</small>
                   <strong>{formatVnd(amountPaid)}</strong>

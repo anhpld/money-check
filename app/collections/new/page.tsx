@@ -5,7 +5,11 @@ import { getPrisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function NewCollectionPage() {
-  const users = await getPrisma().user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const users = await getPrisma().user.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, avatarKey: true },
+  });
 
   return (
     <AdminShell active="collections">

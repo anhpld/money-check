@@ -8,7 +8,16 @@ export const dynamic = "force-dynamic";
 export default async function EditCollectionPage({ params }: PageProps<"/collections/[id]">) {
   const { id } = await params;
   const [users, session] = await Promise.all([
-    getPrisma().user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    getPrisma().user.findMany({
+      where: {
+        OR: [
+          { isActive: true },
+          { sessionMembers: { some: { sessionId: id } } },
+        ],
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, avatarKey: true },
+    }),
     getPrisma().footballSession.findUnique({
       where: { id },
       include: { members: { select: { id: true, userId: true, slots: true, amountDue: true, amountPaid: true, manualPaidAt: true, note: true } } },

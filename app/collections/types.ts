@@ -1,6 +1,7 @@
 export type CollectionUser = {
   id: string;
   name: string;
+  avatarKey: string | null;
 };
 
 export type CollectionMemberInput = {
