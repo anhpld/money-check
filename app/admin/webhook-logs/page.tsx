@@ -31,6 +31,7 @@ export default async function WebhookLogsPage({ searchParams }: { searchParams: 
     take: PAGE_SIZE,
   });
   const dateTime = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "medium" });
+  const mobileDateTime = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
   return (
     <AdminShell active="webhooks">
@@ -45,7 +46,7 @@ export default async function WebhookLogsPage({ searchParams }: { searchParams: 
             <div className="webhook-list-header"><span>Thời gian</span><span>Code</span><span>Số tiền</span><span>Trạng thái</span></div>
             {logs.map((log) => (
               <Link className="webhook-row" href={`/admin/webhook-logs/${log.id}`} key={log.id}>
-                <time>{dateTime.format(log.createdAt)}</time>
+                <time><span className="desktop-date-time">{dateTime.format(log.createdAt)}</span><span className="mobile-date-time">{mobileDateTime.format(log.createdAt)}</span></time>
                 <code>{getRequestValue(log.request, "code")}</code>
                 <span>{getRequestValue(log.request, "amount")}</span>
                 <strong className={`webhook-status ${log.status.toLowerCase()}`}>{webhookStatusLabel(log.status)}</strong>

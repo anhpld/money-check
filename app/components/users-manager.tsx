@@ -124,8 +124,9 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
         </div>
 
         {users.length ? (
-          <div className="table-wrap">
-            <table>
+          <>
+            <div className="table-wrap users-desktop-table">
+              <table>
               <thead><tr><th>Người dùng</th><th>Mã ID</th><th>Trạng thái</th><th className="actions-heading">Thao tác</th></tr></thead>
               <tbody>
                 {users.map((user, index) => (
@@ -155,8 +156,33 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <div className="mobile-user-list">
+              {users.map((user, index) => (
+                <article className={`mobile-user-card ${user.isActive ? "" : "inactive"}`} key={user.id}>
+                  <div className="mobile-user-identity">
+                    <UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} />
+                    <div><strong>{user.name}</strong><code>{user.id.slice(0, 8).toUpperCase()}</code></div>
+                  </div>
+                  <button
+                    className={`user-status-toggle ${user.isActive ? "active" : "inactive"}`}
+                    type="button"
+                    disabled={isPending}
+                    aria-label={`Chuyển ${user.name} sang ${user.isActive ? "Inactive" : "Active"}`}
+                    onClick={() => toggleUserStatus(user)}
+                  >
+                    <i aria-hidden="true" />
+                    {user.isActive ? "Active" : "Inactive"}
+                  </button>
+                  <div className="mobile-user-actions">
+                    <button className="mobile-user-action edit" type="button" onClick={() => openDialog({ type: "edit", user })}>Sửa</button>
+                    <button className="mobile-user-action delete" type="button" onClick={() => openDialog({ type: "delete", user })}>Xóa</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="empty-state">
             <span className="empty-illustration">

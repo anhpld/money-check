@@ -270,6 +270,26 @@ function buildDebtReminder(groups: Map<number, string[]>) {
   return `${lines.join("\n")}`;
 }
 
+export async function sendTestMessengerMessage(
+  _previousState: SendDebtReminderResult,
+): Promise<SendDebtReminderResult> {
+  void _previousState;
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+
+  const result = await sendConfiguredMessengerMessage("test");
+  if (result.status === "sent") {
+    return { status: "success", message: "Đã gửi message test." };
+  }
+  if (result.status === "skipped") {
+    return {
+      status: "error",
+      message: result.reason === "disabled" ? "Cấu hình Messenger đang tắt." : "Cấu hình Messenger chưa đầy đủ.",
+    };
+  }
+  console.error("Không thể gửi message test:", result.error);
+  return { status: "error", message: "Không thể gửi message test. Vui lòng kiểm tra Messenger API." };
+}
+
 export async function sendDebtReminder(
   _previousState: SendDebtReminderResult,
 ): Promise<SendDebtReminderResult> {

@@ -1,6 +1,6 @@
 import { ResetDataButton } from "@/app/admin/settings/reset-data-button";
 import { ResetActivityDataButton } from "@/app/admin/settings/reset-activity-data-button";
-import { DebtReminderButton } from "@/app/admin/settings/debt-reminder-button";
+import { MessengerActions } from "@/app/admin/settings/messenger-actions";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
 import { AndroidStatusCheck } from "@/app/admin/settings/android-status-check";
@@ -31,6 +31,7 @@ export default async function SettingsPage() {
 
         <section className="panel settings-integration-panel">
           <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
+          <MessengerActions configured={messengerConfigured} />
         </section>
 
         <section className="panel settings-device-status-panel">
@@ -44,15 +45,6 @@ export default async function SettingsPage() {
 
         <section className="panel settings-user-sync-panel">
           <UserSyncForm />
-        </section>
-
-        <section className="panel settings-reminder-panel">
-          <div>
-            <span className="settings-section-label">Nhắc nợ</span>
-            <h2>Gửi danh sách còn nợ</h2>
-            <p>Gộp các thành viên theo số buổi còn nợ và gửi một tin nhắn vào group Messenger.</p>
-          </div>
-          <DebtReminderButton configured={messengerConfigured} />
         </section>
 
         <section className="panel settings-maintenance-zone">

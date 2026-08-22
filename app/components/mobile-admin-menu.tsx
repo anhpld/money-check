@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const navigation = [
   { key: "users", href: "/admin", label: "Người dùng" },
@@ -12,53 +12,62 @@ const navigation = [
 ] as const;
 
 export function MobileAdminMenu({ active }: { active: string }) {
-  const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLInputElement>(null);
+  const currentPage = navigation.find((item) => item.key === active);
 
   useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape" && toggleRef.current) toggleRef.current.checked = false;
     };
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
+  useEffect(() => {
+    if (toggleRef.current) toggleRef.current.checked = false;
+  }, [active]);
 
   return (
     <div className="mobile-admin-menu">
-      <button
-        className="mobile-menu-trigger"
-        type="button"
-        aria-expanded={open}
-        aria-controls="mobile-admin-drawer"
-        onClick={() => setOpen(true)}
-      >
-        <span aria-hidden="true">☰</span>
-        Menu
-      </button>
+      <input ref={toggleRef} className="mobile-menu-state" id="mobile-admin-menu-state" type="checkbox" tabIndex={-1} aria-hidden="true" />
+      <header className="mobile-admin-bar">
+        <label
+          className="mobile-menu-trigger"
+          htmlFor="mobile-admin-menu-state"
+          role="button"
+          tabIndex={0}
+          aria-label="Mở menu quản trị"
+          aria-controls="mobile-admin-drawer"
+          onKeyDown={(event) => {
+            if ((event.key === "Enter" || event.key === " ") && toggleRef.current) {
+              event.preventDefault();
+              toggleRef.current.checked = !toggleRef.current.checked;
+            }
+          }}
+        >
+          <span aria-hidden="true">☰</span>
+        </label>
+        <div className="mobile-admin-title"><small>MoneyFlow</small><strong>{currentPage?.label ?? "Quản trị"}</strong></div>
+        <span className="mobile-admin-badge">Admin</span>
+      </header>
 
-      {open ? (
-        <div className="mobile-menu-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-          <aside id="mobile-admin-drawer" className="mobile-menu-drawer" role="dialog" aria-modal="true" aria-label="Menu quản trị">
-            <div className="mobile-menu-heading">
-              <div><strong>MoneyFlow</strong><span>Quản trị</span></div>
-              <button type="button" aria-label="Đóng menu" onClick={() => setOpen(false)}>×</button>
-            </div>
-            <nav aria-label="Điều hướng quản trị trên điện thoại">
-              {navigation.map((item) => (
-                <Link className={active === item.key ? "active" : undefined} href={item.href} key={item.key} onClick={() => setOpen(false)}>{item.label}</Link>
-              ))}
-            </nav>
-            <form className="mobile-menu-logout" action="/api/auth/logout" method="post">
-              <button type="submit">Đăng xuất</button>
-            </form>
-          </aside>
-        </div>
-      ) : null}
+      <div className="mobile-menu-backdrop">
+        <aside id="mobile-admin-drawer" className="mobile-menu-drawer" aria-label="Menu quản trị">
+          <div className="mobile-menu-heading">
+            <div><strong>MoneyFlow</strong><span>Quản trị</span></div>
+            <label htmlFor="mobile-admin-menu-state" role="button" tabIndex={0} aria-label="Đóng menu">×</label>
+          </div>
+          <nav aria-label="Điều hướng quản trị trên điện thoại">
+            {navigation.map((item) => (
+              <Link className={active === item.key ? "active" : undefined} href={item.href} key={item.key} onClick={() => { if (toggleRef.current) toggleRef.current.checked = false; }}>{item.label}</Link>
+            ))}
+          </nav>
+          <form className="mobile-menu-logout" action="/api/auth/logout" method="post">
+            <button type="submit">Đăng xuất</button>
+          </form>
+        </aside>
+        <label className="mobile-menu-dismiss" htmlFor="mobile-admin-menu-state" aria-label="Đóng menu" />
+      </div>
     </div>
   );
 }
