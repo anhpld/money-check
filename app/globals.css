@@ -613,12 +613,12 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .client-user-search button { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; margin-right: 8px; border: 0; border-radius: 8px; background: #f1f4f2; color: #7a8581; cursor: pointer; font-size: 17px; line-height: 1; }
 .client-user-search button:hover { background: #e8eeeb; color: var(--brand); }
 .client-user-list { display: grid; gap: 10px; }
-.client-user-card { display: flex; min-height: 80px; align-items: center; gap: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 13px 16px; box-shadow: 0 3px 13px #23382f08; transition: .18s ease; }
+.client-user-card { display: flex; min-height: 90px; align-items: center; gap: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 16px; box-shadow: 0 3px 13px #23382f08; transition: .18s ease; }
 .client-user-card:hover { border-color: #bfd3cc; box-shadow: 0 8px 25px #173c2f10; transform: translateY(-1px); }
 .client-user-avatar { display: grid; overflow: hidden; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border-radius: 13px; font-size: 14px; font-weight: 800; }
 .client-user-name { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 5px; }
 .client-user-title { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 7px; }
-.client-user-name strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.client-user-name strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
 .client-recent-payment { border-radius: 999px; background: #e6f2ed; color: var(--brand); padding: 4px 7px; font-size: 11px; font-weight: 750; line-height: 1; white-space: nowrap; }
 .client-user-name small { color: var(--muted); font-size: 10px; }
 .client-user-debt { display: flex; align-items: center; gap: 8px; }
@@ -931,7 +931,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .preview-banner { align-items: flex-start; gap: 14px; }
   .client-main { width: min(100% - 24px, 760px); padding: 37px 0 54px; }
   .client-hero { margin-bottom: 22px; }
-  .client-user-card { min-height: 73px; padding: 11px 12px; }
+  .client-user-card { min-height: 84px; padding: 14px 12px; }
   .client-user-avatar { width: 40px; height: 40px; }
   .client-user-debt strong { font-size: 13px; }
   .client-user-debt.has-debt strong { font-size: 16px; }
