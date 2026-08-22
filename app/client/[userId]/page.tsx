@@ -18,12 +18,6 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         orderBy: { session: { playedAt: "desc" } },
         include: { session: true },
       },
-      paymentRequests: {
-        where: { status: "REVIEW_REQUIRED" },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { status: true, code: true, actualAmount: true, expectedAmount: true },
-      },
     },
   });
   if (!user) notFound();
@@ -42,7 +36,6 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
     }))
     .filter((member) => member.totalOutstanding > 0);
   const outstanding = debts.reduce((sum, debt) => sum + debt.totalOutstanding, 0);
-  const unresolvedPayment = user.paymentRequests[0];
 
   return (
     <ClientShell>
@@ -58,11 +51,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
           </section>
         </div>
 
-        {unresolvedPayment ? (
-          <div className="unresolved-payment" role="alert"><span>!</span><div><strong>Đã nhận tiền từ mã thanh toán cũ</strong><p>Mã {unresolvedPayment.code}: yêu cầu {formatVnd(unresolvedPayment.expectedAmount)}, nhận {formatVnd(unresolvedPayment.actualAmount ?? 0)}. Vui lòng liên hệ admin.</p></div></div>
-        ) : null}
-
-        {debts.length && !unresolvedPayment ? <PaymentDialog userId={user.id} debts={debts} /> : (
+        {debts.length ? <PaymentDialog userId={user.id} debts={debts} /> : (
           <section className={`client-debt-section ${debts.length ? "has-debt" : "is-clear"}`}>
           <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
             <div>

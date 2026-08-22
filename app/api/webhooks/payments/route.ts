@@ -13,7 +13,7 @@ type WebhookBody = {
   fullContent?: unknown;
 };
 
-type WebhookLogStatus = "SUCCESS" | "PAID" | "UNDERPAID" | "OVERPAID" | "REVIEW_REQUIRED" | "DUPLICATE" | "NOT_FOUND" | "INVALID" | "FAILED";
+type WebhookLogStatus = "SUCCESS" | "PAID" | "UNDERPAID" | "OVERPAID" | "REVIEW_REQUIRED" | "IGNORED" | "DUPLICATE" | "NOT_FOUND" | "INVALID" | "FAILED";
 
 type ProcessedPayment = {
   code: string;
@@ -54,12 +54,12 @@ function parseAmountFromContent(content: string) {
 }
 
 function responseMessage(status: ProcessedPayment["status"], duplicate: boolean) {
+  if (status === "CANCELLED") return "Mã thanh toán đã bị hủy nên webhook được bỏ qua.";
   if (duplicate) return "Webhook này đã được xử lý trước đó.";
   if (status === "PAID") return "Thanh toán khớp và đã được ghi nhận.";
   if (status === "UNDERPAID") return "Số tiền chuyển bị thiếu. Khoản nợ được giữ nguyên, có thể tạo mã thanh toán mới.";
   if (status === "OVERPAID") return "Số tiền chuyển bị thừa. Khoản nợ được giữ nguyên, có thể tạo mã thanh toán mới.";
   if (status === "REVIEW_REQUIRED") return "Đã nhận tiền từ mã không còn hiệu lực, cần admin kiểm tra.";
-  if (status === "CANCELLED") return "Mã thanh toán không còn hiệu lực.";
   return "Đã nhận webhook.";
 }
 
@@ -185,52 +185,9 @@ export async function POST(request: Request) {
         expectedAmount: item.expectedAmount,
       }));
 
-      if (paymentRequest.status === "CANCELLED") {
-        const reviewed = await transaction.paymentRequest.updateMany({
-          where: { id: paymentRequest.id, status: "CANCELLED" },
-          data: {
-            actualAmount: amount,
-            fullContent,
-            status: "REVIEW_REQUIRED",
-            processedAt: new Date(),
-          },
-        });
-        if (reviewed.count) {
-          // Stop any newer QR for this user until the late payment is reviewed.
-          await transaction.paymentRequest.updateMany({
-            where: {
-              userId: paymentRequest.userId,
-              id: { not: paymentRequest.id },
-              status: "PENDING",
-            },
-            data: { status: "CANCELLED", processedAt: new Date() },
-          });
-          return {
-            code: paymentRequest.code,
-            status: "REVIEW_REQUIRED",
-            expectedAmount: paymentRequest.expectedAmount,
-            actualAmount: amount,
-            duplicate: false,
-            user: paymentRequest.user,
-            items: serializedItems,
-          };
-        }
-
-        const current = await transaction.paymentRequest.findUniqueOrThrow({
-          where: { id: paymentRequest.id },
-        });
-        return {
-          code: current.code,
-          status: current.status,
-          expectedAmount: current.expectedAmount,
-          actualAmount: current.actualAmount,
-          duplicate: true,
-          user: paymentRequest.user,
-          items: serializedItems,
-        };
-      }
-
       if (paymentRequest.status !== "PENDING") {
+        // Terminal states are immutable. Late or duplicate webhooks are logged
+        // but must never change this request, another request, or member debt.
         return {
           code: paymentRequest.code,
           status: paymentRequest.status,
@@ -321,13 +278,17 @@ export async function POST(request: Request) {
       }
     }
 
-    return loggedResponse(
-      logRequest,
-      result.duplicate
+    const logStatus: WebhookLogStatus = result.status === "CANCELLED"
+      ? "IGNORED"
+      : result.duplicate
         ? "DUPLICATE"
         : result.status === "PAID" || result.status === "UNDERPAID" || result.status === "OVERPAID" || result.status === "REVIEW_REQUIRED"
           ? result.status
-          : "SUCCESS",
+          : "SUCCESS";
+
+    return loggedResponse(
+      logRequest,
+      logStatus,
       {
         success: true,
         message: responseMessage(result.status, result.duplicate),

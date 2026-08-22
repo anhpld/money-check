@@ -4,6 +4,7 @@ const webhookStatusLabels: Record<string, string> = {
   UNDERPAID: "Thiếu tiền",
   OVERPAID: "Thừa tiền",
   REVIEW_REQUIRED: "Cần kiểm tra",
+  IGNORED: "Đã bỏ qua",
   DUPLICATE: "Trùng lặp",
   NOT_FOUND: "Không tìm thấy",
   INVALID: "Không hợp lệ",
