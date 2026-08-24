@@ -5,6 +5,7 @@ import { PaymentDialog, type ClientDebtItem } from "@/app/client/payment-dialog"
 import { UserAvatar } from "@/app/components/user-avatar";
 import { getPrisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/money";
+import { getOutstandingAmount } from "@/lib/payment-totals";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,10 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         orderBy: { session: { playedAt: "desc" } },
         include: {
           session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } },
-          manualPaymentOptions: { select: { optionId: true } },
+          manualPaymentOptions: { select: { optionId: true, amount: true } },
           paymentItems: {
             where: { paymentRequest: { status: "PAID" } },
-            select: { options: { select: { optionId: true } } },
+            select: { options: { select: { optionId: true, amount: true } } },
           },
         },
       },
@@ -31,6 +32,12 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
 
   const debts: ClientDebtItem[] = user.sessionMembers
     .map((member) => {
+      const outstanding = getOutstandingAmount(
+        member.amountDue,
+        member.amountPaid,
+        member.manualPaymentOptions,
+        member.paymentItems,
+      );
       const paidOptionIds = new Set([
         ...member.manualPaymentOptions.map((option) => option.optionId),
         ...member.paymentItems.flatMap((item) => item.options.map((option) => option.optionId)),
@@ -41,7 +48,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
         title: member.session.title,
         playedAt: member.session.playedAt.toISOString(),
         slots: member.slots,
-        footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
+        footballAmount: outstanding,
         chargeOptions: member.session.chargeOptions
           .filter((option) => !paidOptionIds.has(option.id))
           .map((option) => ({
@@ -51,7 +58,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
             autoSelected: option.autoSelected,
             allowCustomAmount: option.allowCustomAmount,
           })),
-        totalOutstanding: Math.max(member.amountDue - member.amountPaid, 0),
+        totalOutstanding: outstanding,
         note: member.note,
         sessionNote: member.session.note,
       };

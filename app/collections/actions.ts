@@ -80,8 +80,10 @@ export async function markMemberPaidManually(
       const paidOptionIds = new Set(
         existingPaidOptions.map((option) => option.optionId).filter((optionId): optionId is string => Boolean(optionId)),
       );
+      const existingPaidOptionsTotal = existingPaidOptions.reduce((sum, option) => sum + option.amount, 0);
+      const totalPaid = member.amountPaid + existingPaidOptionsTotal;
 
-      if (member.amountPaid >= member.amountDue) {
+      if (totalPaid >= member.amountDue) {
         return {
           amountPaid: member.amountPaid,
           manualPaidAt: member.manualPaidAt,
@@ -115,11 +117,11 @@ export async function markMemberPaidManually(
         data: { status: "CANCELLED" },
       });
 
-      const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
+      const footballAmount = Math.max(member.amountDue - totalPaid, 0);
       const updated = await transaction.sessionMember.update({
         where: { id: member.id },
         data: {
-          amountPaid: member.amountDue,
+          amountPaid: member.amountPaid + footballAmount,
           manualPaidAt: new Date(),
           manualFootballAmount: (member.manualFootballAmount ?? 0) + footballAmount,
           manualPaymentOptions: { create: selectedOptions },

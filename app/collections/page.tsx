@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminShell } from "@/app/components/admin-shell";
 import { getPrisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/money";
+import { getTotalPaidAmount } from "@/lib/payment-totals";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,17 @@ export default async function CollectionsPage() {
     where: { deletedAt: null },
     orderBy: [{ playedAt: "desc" }, { createdAt: "desc" }],
     include: {
-      members: { select: { amountDue: true, amountPaid: true } },
+      members: {
+        select: {
+          amountDue: true,
+          amountPaid: true,
+          manualPaymentOptions: { select: { amount: true } },
+          paymentItems: {
+            where: { paymentRequest: { status: "PAID" } },
+            select: { options: { select: { amount: true } } },
+          },
+        },
+      },
     },
   });
 
@@ -33,8 +44,13 @@ export default async function CollectionsPage() {
           <div className="session-grid">
             {sessions.map((session) => {
               const allocated = session.members.reduce((sum, member) => sum + member.amountDue, 0);
-              const paid = session.members.reduce((sum, member) => sum + member.amountPaid, 0);
-              const paidMembers = session.members.filter((member) => member.amountPaid >= member.amountDue).length;
+              const paidByMember = session.members.map((member) => getTotalPaidAmount(
+                member.amountPaid,
+                member.manualPaymentOptions,
+                member.paymentItems,
+              ));
+              const paid = paidByMember.reduce((sum, amount) => sum + amount, 0);
+              const paidMembers = session.members.filter((member, index) => paidByMember[index] >= member.amountDue).length;
               const outstanding = Math.max(allocated - paid, 0);
               return (
                 <article className="session-card panel" key={session.id}>

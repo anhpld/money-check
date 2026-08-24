@@ -3,6 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
+import { getOutstandingAmount } from "@/lib/payment-totals";
 
 function generatePaymentCode() {
   return `PAY${randomBytes(4).toString("hex").toUpperCase()}`;
@@ -135,10 +136,10 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       orderBy: { session: { playedAt: "asc" } },
       include: {
         session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } },
-        manualPaymentOptions: { select: { optionId: true } },
+        manualPaymentOptions: { select: { optionId: true, amount: true } },
         paymentItems: {
           where: { paymentRequest: { status: "PAID" } },
-          select: { options: { select: { optionId: true } } },
+          select: { options: { select: { optionId: true, amount: true } } },
         },
       },
     });
@@ -147,7 +148,12 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     }
 
     const items = members.map((member) => {
-      const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
+      const footballAmount = getOutstandingAmount(
+        member.amountDue,
+        member.amountPaid,
+        member.manualPaymentOptions,
+        member.paymentItems,
+      );
       const availableOptions = new Map(member.session.chargeOptions.map((option) => [option.id, option]));
       const paidOptionIds = new Set([
         ...member.manualPaymentOptions.map((option) => option.optionId),

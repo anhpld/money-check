@@ -7,6 +7,7 @@ import { UserAvatar } from "@/app/components/user-avatar";
 import { deleteCollection, markMemberPaidManually, saveCollection } from "@/app/collections/actions";
 import type { CollectionChargeOption, CollectionEditorData, CollectionUser, PaidBreakdown } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
+import { getPaidBreakdownTotal } from "@/lib/payment-totals";
 
 export function CollectionEditor({ users, initial }: { users: CollectionUser[]; initial?: CollectionEditorData }) {
   const router = useRouter();
@@ -57,7 +58,10 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     .filter((user) => selectedIds.includes(user.id))
     .sort((left, right) => {
       const rank = (userId: string) => {
-        const paid = paidAmounts[userId] ?? 0;
+        const paid = getPaidBreakdownTotal(paidBreakdowns[userId] ?? {
+          footballAmount: paidAmounts[userId] ?? 0,
+          options: [],
+        });
         const due = amounts[userId] ?? 0;
         return paid <= 0 ? 0 : paid < due ? 1 : 2;
       };
@@ -282,7 +286,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                   <tr key={user.id}>
                     <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
                     <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td>
-                    <td><div className="preview-paid-value"><strong>{formatVnd(paidAmounts[user.id] ?? 0)}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
+                    <td><div className="preview-paid-value"><strong>{formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
                   </tr>
                 ))}
@@ -372,9 +376,9 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               const member = membersByUser.get(user.id);
               const amountPaid = paidAmounts[user.id] ?? 0;
               const amountDue = amounts[user.id] ?? 0;
-              const paymentState = amountPaid <= 0 ? "unpaid" : amountPaid >= amountDue ? "paid" : "partial";
               const paidBreakdown = paidBreakdowns[user.id] ?? { footballAmount: amountPaid, options: [] };
-              const totalPaid = paidBreakdown.footballAmount + paidBreakdown.options.reduce((sum, option) => sum + option.amount, 0);
+              const totalPaid = getPaidBreakdownTotal(paidBreakdown);
+              const paymentState = totalPaid <= 0 ? "unpaid" : totalPaid >= amountDue ? "paid" : "partial";
               return (
               <div className={`allocation-row ${paymentState}`} key={user.id}>
                 <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><div className="allocation-user-meta"><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small><button type="button" onClick={() => setExpandedNotes((current) => ({ ...current, [user.id]: !current[user.id] }))}>{expandedNotes[user.id] ? "Đóng ghi chú" : memberNotes[user.id] ? "Ghi chú" : "Ghi chú +"}</button></div></div></div>
@@ -389,7 +393,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                       className="manual-paid-button"
                       type="button"
                       disabled={isPending}
-                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - amountPaid, 0) })}
+                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - totalPaid, 0) })}
                     >
                       Ghi nhận thanh toán
                     </button>

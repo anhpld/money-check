@@ -3,6 +3,7 @@ import { ClientShell } from "@/app/client/client-shell";
 import { ClientUserList } from "@/app/client/client-user-list";
 import { RECENT_PAID_USER_COOKIE } from "@/lib/client-preference";
 import { getPrisma } from "@/lib/prisma";
+import { getOutstandingAmount } from "@/lib/payment-totals";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +16,27 @@ export default async function ClientPage() {
       include: {
         sessionMembers: {
           where: { session: { status: "PUBLISHED", deletedAt: null } },
-          select: { amountDue: true, amountPaid: true },
+          select: {
+            amountDue: true,
+            amountPaid: true,
+            manualPaymentOptions: { select: { amount: true } },
+            paymentItems: {
+              where: { paymentRequest: { status: "PAID" } },
+              select: { options: { select: { amount: true } } },
+            },
+          },
         },
       },
     }),
   ]);
   const recentPaidUserId = cookieStore.get(RECENT_PAID_USER_COOKIE)?.value;
   const userSummaries = users.map((user) => {
-    const debts = user.sessionMembers.map((member) => Math.max(member.amountDue - member.amountPaid, 0));
+    const debts = user.sessionMembers.map((member) => getOutstandingAmount(
+      member.amountDue,
+      member.amountPaid,
+      member.manualPaymentOptions,
+      member.paymentItems,
+    ));
     return {
       id: user.id,
       name: user.name,

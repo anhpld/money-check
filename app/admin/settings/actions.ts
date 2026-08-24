@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "@/lib/admin-session";
 import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
 import { sendConfiguredMessengerMessage } from "@/lib/messenger-message";
 import { getPrisma } from "@/lib/prisma";
+import { getTotalPaidAmount } from "@/lib/payment-totals";
 import {
   clearStoredAvatars,
   deleteStoredAvatar,
@@ -302,12 +303,17 @@ export async function sendDebtReminder(
       select: {
         amountDue: true,
         amountPaid: true,
+        manualPaymentOptions: { select: { amount: true } },
+        paymentItems: {
+          where: { paymentRequest: { status: "PAID" } },
+          select: { options: { select: { amount: true } } },
+        },
         user: { select: { id: true, name: true } },
       },
     });
     const debtCountByUser = new Map<string, { name: string; count: number }>();
     for (const member of members) {
-      if (member.amountPaid >= member.amountDue) continue;
+      if (getTotalPaidAmount(member.amountPaid, member.manualPaymentOptions, member.paymentItems) >= member.amountDue) continue;
       const current = debtCountByUser.get(member.user.id);
       debtCountByUser.set(member.user.id, {
         name: member.user.name,
