@@ -9,9 +9,23 @@ export type ManualPaymentResult =
   | { status: "success"; message: string; amountPaid: number; manualPaidAt: string | null; paidBreakdown: PaidBreakdown }
   | { status: "error"; message: string };
 
-const blockingPaymentStatuses = ["REVIEW_REQUIRED"] as const;
+const relevantPaymentStatuses = ["PAID", "REVIEW_REQUIRED"] as const;
 
 type ManualOptionSelection = { optionId: string; amount: number };
+
+function buildPaidBreakdown(
+  footballAmount: number,
+  options: Array<{ name: string; amount: number }>,
+): PaidBreakdown {
+  const optionAmounts = new Map<string, number>();
+  for (const option of options) {
+    optionAmounts.set(option.name, (optionAmounts.get(option.name) ?? 0) + option.amount);
+  }
+  return {
+    footballAmount,
+    options: [...optionAmounts].map(([name, amount]) => ({ name, amount })),
+  };
+}
 
 export async function markMemberPaidManually(
   sessionMemberId: string,
@@ -31,29 +45,47 @@ export async function markMemberPaidManually(
             select: {
               id: true,
               status: true,
+              deletedAt: true,
               chargeOptions: { orderBy: { sortOrder: "asc" } },
             },
           },
           manualPaymentOptions: { orderBy: { sortOrder: "asc" } },
           paymentItems: {
-            where: { paymentRequest: { status: { in: [...blockingPaymentStatuses] } } },
-            select: { id: true },
-            take: 1,
+            where: { paymentRequest: { status: { in: [...relevantPaymentStatuses] } } },
+            select: {
+              footballAmount: true,
+              paymentRequest: { select: { status: true } },
+              options: { select: { optionId: true, name: true, amount: true } },
+            },
           },
         },
       });
 
       if (!member) throw new Error("MEMBER_NOT_FOUND");
+      if (member.session.deletedAt) throw new Error("COLLECTION_DELETED");
       if (member.session.status === "DRAFT") throw new Error("SESSION_NOT_PUBLISHED");
-      if (member.paymentItems.length) throw new Error("PAYMENT_NEEDS_REVIEW");
+      if (member.paymentItems.some((item) => item.paymentRequest.status === "REVIEW_REQUIRED")) {
+        throw new Error("PAYMENT_NEEDS_REVIEW");
+      }
+
+      const paidPaymentItems = member.paymentItems.filter((item) => item.paymentRequest.status === "PAID");
+      const existingFootballPaid = paidPaymentItems.reduce(
+        (sum, item) => sum + item.footballAmount,
+        member.manualFootballAmount ?? 0,
+      );
+      const existingPaidOptions = [
+        ...paidPaymentItems.flatMap((item) => item.options),
+        ...member.manualPaymentOptions,
+      ];
+      const paidOptionIds = new Set(
+        existingPaidOptions.map((option) => option.optionId).filter((optionId): optionId is string => Boolean(optionId)),
+      );
+
       if (member.amountPaid >= member.amountDue) {
         return {
           amountPaid: member.amountPaid,
           manualPaidAt: member.manualPaidAt,
-          paidBreakdown: {
-            footballAmount: member.manualFootballAmount ?? member.amountPaid,
-            options: member.manualPaymentOptions.map((option) => ({ name: option.name, amount: option.amount })),
-          },
+          paidBreakdown: buildPaidBreakdown(existingFootballPaid, existingPaidOptions),
           sessionId: member.session.id,
           alreadyPaid: true,
         };
@@ -65,6 +97,7 @@ export async function markMemberPaidManually(
         if (!selection.optionId || selectedIds.has(selection.optionId)) throw new Error("INVALID_OPTIONS");
         const option = optionsById.get(selection.optionId);
         if (!option || !Number.isInteger(selection.amount) || selection.amount < 0) throw new Error("INVALID_OPTIONS");
+        if (paidOptionIds.has(option.id)) throw new Error("OPTION_ALREADY_PAID");
         selectedIds.add(selection.optionId);
         return {
           optionId: option.id,
@@ -82,12 +115,13 @@ export async function markMemberPaidManually(
         data: { status: "CANCELLED" },
       });
 
+      const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
       const updated = await transaction.sessionMember.update({
         where: { id: member.id },
         data: {
           amountPaid: member.amountDue,
           manualPaidAt: new Date(),
-          manualFootballAmount: member.amountDue,
+          manualFootballAmount: (member.manualFootballAmount ?? 0) + footballAmount,
           manualPaymentOptions: { create: selectedOptions },
         },
         select: { amountPaid: true, manualPaidAt: true },
@@ -96,10 +130,10 @@ export async function markMemberPaidManually(
       return {
         amountPaid: updated.amountPaid,
         manualPaidAt: updated.manualPaidAt,
-        paidBreakdown: {
-          footballAmount: member.amountDue,
-          options: selectedOptions.map((option) => ({ name: option.name, amount: option.amount })),
-        },
+        paidBreakdown: buildPaidBreakdown(
+          existingFootballPaid + footballAmount,
+          [...existingPaidOptions, ...selectedOptions],
+        ),
         sessionId: member.session.id,
         alreadyPaid: false,
       };
@@ -118,14 +152,57 @@ export async function markMemberPaidManually(
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "MEMBER_NOT_FOUND") return { status: "error", message: "Không tìm thấy người trong khoản thu." };
+      if (error.message === "COLLECTION_DELETED") return { status: "error", message: "Khoản thu này đã bị xóa." };
       if (error.message === "SESSION_NOT_PUBLISHED") return { status: "error", message: "Hãy public khoản thu trước khi ghi nhận thanh toán." };
       if (error.message === "PAYMENT_NEEDS_REVIEW") {
         return { status: "error", message: "Người này đang có giao dịch cần kiểm tra. Hãy xử lý giao dịch đó trước." };
       }
       if (error.message === "INVALID_OPTIONS") return { status: "error", message: "Danh sách tùy chọn thanh toán không hợp lệ." };
+      if (error.message === "OPTION_ALREADY_PAID") {
+        return { status: "error", message: "Có tùy chọn đã được thanh toán trước đó. Vui lòng tải lại trang." };
+      }
     }
     console.error("Không thể ghi nhận thanh toán thủ công:", error);
     return { status: "error", message: "Không thể ghi nhận thanh toán. Vui lòng thử lại." };
+  }
+}
+
+export async function deleteCollection(id: string): Promise<CollectionActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!id) return { status: "error", message: "Không tìm thấy khoản thu cần xóa." };
+
+  try {
+    const prisma = getPrisma();
+    const deletedTitle = await prisma.$transaction(async (transaction) => {
+      const session = await transaction.footballSession.findUnique({
+        where: { id },
+        select: { title: true, deletedAt: true },
+      });
+      if (!session || session.deletedAt) throw new Error("COLLECTION_NOT_FOUND");
+
+      await transaction.paymentRequest.updateMany({
+        where: {
+          status: "PENDING",
+          items: { some: { sessionMember: { sessionId: id } } },
+        },
+        data: { status: "CANCELLED", processedAt: new Date() },
+      });
+      await transaction.footballSession.update({
+        where: { id },
+        data: { status: "CLOSED", deletedAt: new Date() },
+      });
+      return session.title;
+    });
+
+    revalidatePath("/admin/collections");
+    revalidatePath("/client");
+    return { status: "success", message: `Đã xóa khoản thu ${deletedTitle}.` };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "COLLECTION_NOT_FOUND") return { status: "error", message: "Khoản thu không còn tồn tại." };
+    }
+    console.error("Không thể xóa khoản thu:", error);
+    return { status: "error", message: "Không thể xóa khoản thu. Vui lòng thử lại." };
   }
 }
 
@@ -211,8 +288,8 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
       };
     }
 
-    const existing = await prisma.footballSession.findUnique({
-      where: { id: input.id },
+    const existing = await prisma.footballSession.findFirst({
+      where: { id: input.id, deletedAt: null },
       include: { members: true, chargeOptions: true },
     });
     if (!existing) return { status: "error", message: "Không tìm thấy khoản thu." };
@@ -274,16 +351,10 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
           continue;
         }
 
-        const difference = incoming.amountDue - current.amountDue;
         await transaction.sessionMember.update({
           where: { id: current.id },
           data: { slots: incoming.slots, amountDue: incoming.amountDue, note: incoming.note.trim() || null },
         });
-        if (existing.status !== "DRAFT" && difference !== 0) {
-          await transaction.chargeAdjustment.create({
-            data: { sessionMemberId: current.id, amount: difference, reason: "Admin điều chỉnh khoản thu sau khi public" },
-          });
-        }
         incomingByUser.delete(current.userId);
       }
 

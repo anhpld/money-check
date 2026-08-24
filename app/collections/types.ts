@@ -36,6 +36,7 @@ export type CollectionEditorData = {
     id: string;
     amountPaid: number;
     manualPaidAt: string | null;
+    paidOptionIds: string[];
     paidBreakdown: PaidBreakdown;
   }>;
 };

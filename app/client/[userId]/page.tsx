@@ -14,32 +14,48 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
     where: { id: userId, isActive: true },
     include: {
       sessionMembers: {
-        where: { session: { status: "PUBLISHED" } },
+        where: { session: { status: "PUBLISHED", deletedAt: null } },
         orderBy: { session: { playedAt: "desc" } },
-        include: { session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } } },
+        include: {
+          session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } },
+          manualPaymentOptions: { select: { optionId: true } },
+          paymentItems: {
+            where: { paymentRequest: { status: "PAID" } },
+            select: { options: { select: { optionId: true } } },
+          },
+        },
       },
     },
   });
   if (!user) notFound();
 
   const debts: ClientDebtItem[] = user.sessionMembers
-    .map((member) => ({
-      sessionMemberId: member.id,
-      title: member.session.title,
-      playedAt: member.session.playedAt.toISOString(),
-      slots: member.slots,
-      footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
-      chargeOptions: member.session.chargeOptions.map((option) => ({
-        id: option.id,
-        name: option.name,
-        defaultAmount: option.defaultAmount,
-        autoSelected: option.autoSelected,
-        allowCustomAmount: option.allowCustomAmount,
-      })),
-      totalOutstanding: Math.max(member.amountDue - member.amountPaid, 0),
-      note: member.note,
-      sessionNote: member.session.note,
-    }))
+    .map((member) => {
+      const paidOptionIds = new Set([
+        ...member.manualPaymentOptions.map((option) => option.optionId),
+        ...member.paymentItems.flatMap((item) => item.options.map((option) => option.optionId)),
+      ].filter((optionId): optionId is string => Boolean(optionId)));
+
+      return {
+        sessionMemberId: member.id,
+        title: member.session.title,
+        playedAt: member.session.playedAt.toISOString(),
+        slots: member.slots,
+        footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
+        chargeOptions: member.session.chargeOptions
+          .filter((option) => !paidOptionIds.has(option.id))
+          .map((option) => ({
+            id: option.id,
+            name: option.name,
+            defaultAmount: option.defaultAmount,
+            autoSelected: option.autoSelected,
+            allowCustomAmount: option.allowCustomAmount,
+          })),
+        totalOutstanding: Math.max(member.amountDue - member.amountPaid, 0),
+        note: member.note,
+        sessionNote: member.session.note,
+      };
+    })
     .filter((member) => member.totalOutstanding > 0);
   const outstanding = debts.reduce((sum, debt) => sum + debt.totalOutstanding, 0);
 

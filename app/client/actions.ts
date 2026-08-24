@@ -130,10 +130,17 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       where: {
         id: { in: [...selectionsByMember.keys()] },
         userId: input.userId,
-        session: { status: "PUBLISHED" },
+        session: { status: "PUBLISHED", deletedAt: null },
       },
       orderBy: { session: { playedAt: "asc" } },
-      include: { session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } } },
+      include: {
+        session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } },
+        manualPaymentOptions: { select: { optionId: true } },
+        paymentItems: {
+          where: { paymentRequest: { status: "PAID" } },
+          select: { options: { select: { optionId: true } } },
+        },
+      },
     });
     if (members.length !== selectionsByMember.size) {
       return { status: "error", message: "Danh sách buổi cần thanh toán không hợp lệ." };
@@ -142,9 +149,14 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     const items = members.map((member) => {
       const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
       const availableOptions = new Map(member.session.chargeOptions.map((option) => [option.id, option]));
+      const paidOptionIds = new Set([
+        ...member.manualPaymentOptions.map((option) => option.optionId),
+        ...member.paymentItems.flatMap((item) => item.options.map((option) => option.optionId)),
+      ].filter((optionId): optionId is string => Boolean(optionId)));
       const selectedOptions = (selectionsByMember.get(member.id) ?? []).map((selection) => {
         const option = availableOptions.get(selection.optionId);
         if (!option) throw new Error("INVALID_OPTIONS");
+        if (paidOptionIds.has(option.id)) throw new Error("OPTION_ALREADY_PAID");
         return {
           optionId: option.id,
           name: option.name,
@@ -245,6 +257,9 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       throw new Error("PAYMENT_REQUEST_CHANGED");
     }
   } catch (error) {
+    if (error instanceof Error && error.message === "OPTION_ALREADY_PAID") {
+      return { status: "error", message: "Có tùy chọn đã được thanh toán trước đó. Vui lòng tải lại trang." };
+    }
     if (error instanceof Error && error.message === "INVALID_OPTIONS") {
       return { status: "error", message: "Tùy chọn thanh toán không còn hợp lệ. Vui lòng tải lại trang." };
     }

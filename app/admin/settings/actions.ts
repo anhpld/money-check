@@ -298,7 +298,7 @@ export async function sendDebtReminder(
 
   try {
     const members = await getPrisma().sessionMember.findMany({
-      where: { session: { status: "PUBLISHED" } },
+      where: { session: { status: "PUBLISHED", deletedAt: null } },
       select: {
         amountDue: true,
         amountPaid: true,

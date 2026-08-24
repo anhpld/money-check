@@ -18,8 +18,8 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
       orderBy: { name: "asc" },
       select: { id: true, name: true, avatarKey: true },
     }),
-    getPrisma().footballSession.findUnique({
-      where: { id },
+    getPrisma().footballSession.findFirst({
+      where: { id, deletedAt: null },
       include: {
         chargeOptions: { orderBy: { sortOrder: "asc" } },
         members: {
@@ -60,11 +60,13 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
             })),
             status: session.status,
             members: session.members.map((member) => {
+              const paidOptionIds = new Set<string>();
               const optionAmounts = new Map<string, number>();
               for (const option of [
                 ...member.paymentItems.flatMap((item) => item.options),
                 ...member.manualPaymentOptions,
               ]) {
+                if (option.optionId) paidOptionIds.add(option.optionId);
                 optionAmounts.set(option.name, (optionAmounts.get(option.name) ?? 0) + option.amount);
               }
               return {
@@ -74,6 +76,7 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
                 amountDue: member.amountDue,
                 amountPaid: member.amountPaid,
                 manualPaidAt: member.manualPaidAt?.toISOString() ?? null,
+                paidOptionIds: [...paidOptionIds],
                 note: member.note ?? "",
                 paidBreakdown: {
                   footballAmount: member.paymentItems.reduce((sum, item) => sum + item.footballAmount, member.manualFootballAmount ?? 0),

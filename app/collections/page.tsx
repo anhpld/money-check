@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CollectionsPage() {
   const sessions = await getPrisma().footballSession.findMany({
+    where: { deletedAt: null },
     orderBy: [{ playedAt: "desc" }, { createdAt: "desc" }],
     include: {
       members: { select: { amountDue: true, amountPaid: true } },

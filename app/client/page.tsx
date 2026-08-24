@@ -14,7 +14,7 @@ export default async function ClientPage() {
       orderBy: { name: "asc" },
       include: {
         sessionMembers: {
-          where: { session: { status: "PUBLISHED" } },
+          where: { session: { status: "PUBLISHED", deletedAt: null } },
           select: { amountDue: true, amountPaid: true },
         },
       },

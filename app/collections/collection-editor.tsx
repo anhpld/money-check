@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { UserAvatar } from "@/app/components/user-avatar";
-import { markMemberPaidManually, saveCollection } from "@/app/collections/actions";
+import { deleteCollection, markMemberPaidManually, saveCollection } from "@/app/collections/actions";
 import type { CollectionChargeOption, CollectionEditorData, CollectionUser, PaidBreakdown } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 
@@ -37,12 +37,17 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const [paidBreakdowns, setPaidBreakdowns] = useState<Record<string, PaidBreakdown>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.paidBreakdown]) ?? []),
   );
+  const [paidOptionIds, setPaidOptionIds] = useState<Record<string, string[]>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.paidOptionIds]) ?? []),
+  );
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>(
     Object.fromEntries(initial?.members.filter((member) => member.note.trim()).map((member) => [member.userId, true]) ?? []),
   );
-  const [manualPaymentTarget, setManualPaymentTarget] = useState<{ memberId: string; userId: string; name: string; amountDue: number } | null>(null);
+  const [manualPaymentTarget, setManualPaymentTarget] = useState<{ memberId: string; userId: string; name: string; footballAmount: number } | null>(null);
   const [manualOptionSelections, setManualOptionSelections] = useState<Record<string, { included: boolean; amount: number }>>({});
   const [manualPaymentError, setManualPaymentError] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const membersByUser = useMemo(
     () => new Map(initial?.members.map((member) => [member.userId, member]) ?? []),
@@ -126,9 +131,11 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     setChargeOptions((current) => current.map((option) => option.id === id ? { ...option, ...patch } : option));
   }
 
-  function openManualPayment(target: { memberId: string; userId: string; name: string; amountDue: number }) {
+  function openManualPayment(target: { memberId: string; userId: string; name: string; footballAmount: number }) {
+    const paidIds = new Set(paidOptionIds[target.userId] ?? []);
+    const availableOptions = chargeOptions.filter((option) => !paidIds.has(option.id));
     setManualPaymentError("");
-    setManualOptionSelections(Object.fromEntries(chargeOptions.map((option) => [option.id, {
+    setManualOptionSelections(Object.fromEntries(availableOptions.map((option) => [option.id, {
       included: option.autoSelected,
       amount: option.defaultAmount,
     }])));
@@ -190,14 +197,12 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   function confirmManualPayment() {
     if (!manualPaymentTarget) return;
     const target = manualPaymentTarget;
+    const selectedOptions = manualChargeOptions
+      .filter((option) => manualOptionSelections[option.id]?.included)
+      .map((option) => ({ optionId: option.id, amount: manualOptionSelections[option.id]?.amount ?? option.defaultAmount }));
     setManualPaymentError("");
     startTransition(async () => {
-      const result = await markMemberPaidManually(
-        target.memberId,
-        chargeOptions
-          .filter((option) => manualOptionSelections[option.id]?.included)
-          .map((option) => ({ optionId: option.id, amount: manualOptionSelections[option.id]?.amount ?? option.defaultAmount })),
-      );
+      const result = await markMemberPaidManually(target.memberId, selectedOptions);
       if (result.status === "error") {
         setManualPaymentError(result.message);
         return;
@@ -205,12 +210,33 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
       setPaidAmounts((current) => ({ ...current, [target.userId]: result.amountPaid }));
       setManualPaidUsers((current) => ({ ...current, [target.userId]: Boolean(result.manualPaidAt) }));
       setPaidBreakdowns((current) => ({ ...current, [target.userId]: result.paidBreakdown }));
+      setPaidOptionIds((current) => ({
+        ...current,
+        [target.userId]: [...new Set([...(current[target.userId] ?? []), ...selectedOptions.map((option) => option.optionId)])],
+      }));
       setManualPaymentTarget(null);
       router.refresh();
     });
   }
 
-  const manualOptionsTotal = chargeOptions.reduce((sum, option) => {
+  function confirmDeleteCollection() {
+    if (!initial) return;
+    setDeleteError("");
+    startTransition(async () => {
+      const result = await deleteCollection(initial.id);
+      if (result.status === "error") {
+        setDeleteError(result.message);
+        return;
+      }
+      router.push("/admin/collections");
+      router.refresh();
+    });
+  }
+
+  const manualChargeOptions = manualPaymentTarget
+    ? chargeOptions.filter((option) => !(paidOptionIds[manualPaymentTarget.userId] ?? []).includes(option.id))
+    : [];
+  const manualOptionsTotal = manualChargeOptions.reduce((sum, option) => {
     const selection = manualOptionSelections[option.id];
     return sum + (selection?.included ? selection.amount : 0);
   }, 0);
@@ -363,7 +389,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                       className="manual-paid-button"
                       type="button"
                       disabled={isPending}
-                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, amountDue })}
+                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - amountPaid, 0) })}
                     >
                       Ghi nhận thanh toán
                     </button>
@@ -416,8 +442,8 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               </div>
             </div>
             <div className="manual-payment-breakdown">
-              <div><span>Tiền bóng</span><strong>{formatVnd(manualPaymentTarget.amountDue)}</strong></div>
-              {chargeOptions.map((option) => {
+              <div><span>Tiền bóng còn lại</span><strong>{formatVnd(manualPaymentTarget.footballAmount)}</strong></div>
+              {manualChargeOptions.map((option) => {
                 const selection = manualOptionSelections[option.id];
                 return (
                   <div className="manual-option-row" key={option.id}>
@@ -428,13 +454,49 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                   </div>
                 );
               })}
+              {!manualChargeOptions.length ? <div className="manual-option-row"><span>Không còn tùy chọn chưa thanh toán</span></div> : null}
             </div>
-            <div className="manual-payment-amount"><span>Tổng số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.amountDue + manualOptionsTotal)}</strong></div>
+            <div className="manual-payment-amount"><span>Tổng số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.footballAmount + manualOptionsTotal)}</strong></div>
             <p className="manual-payment-note">Mã QR đang chờ sẽ tự động được hủy.</p>
             {manualPaymentError ? <div className="editor-error manual-payment-error" role="alert">! {manualPaymentError}</div> : null}
             <div className="dialog-actions">
               <button className="secondary-button" type="button" disabled={isPending} onClick={() => setManualPaymentTarget(null)}>Hủy</button>
               <button className="primary-button" type="button" disabled={isPending} onClick={confirmManualPayment}>{isPending ? "Đang ghi nhận..." : "Xác nhận"}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {initial ? (
+        <section className="collection-delete-zone">
+          <div>
+            <strong>Xóa khoản thu</strong>
+            <p>Khoản thu sẽ biến mất khỏi danh sách; lịch sử thanh toán vẫn được giữ trong Giao dịch.</p>
+          </div>
+          <button className="collection-delete-button" type="button" disabled={isPending} onClick={() => {
+            setDeleteError("");
+            setDeleteConfirmOpen(true);
+          }}>Xóa khoản thu</button>
+        </section>
+      ) : null}
+      {deleteConfirmOpen && initial ? (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !isPending) setDeleteConfirmOpen(false);
+        }}>
+          <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="delete-collection-title">
+            <div className="dialog-icon danger">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+            </div>
+            <div className="dialog-heading">
+              <h2 id="delete-collection-title">Xóa khoản thu?</h2>
+              <p>Bạn có chắc muốn xóa <strong>{initial.title}</strong>? Các mã QR đang chờ liên quan sẽ bị hủy và thao tác này không thể hoàn tác.</p>
+            </div>
+            {deleteError ? <div className="editor-error delete-collection-error" role="alert">! {deleteError}</div> : null}
+            <div className="dialog-actions">
+              <button className="secondary-button" type="button" disabled={isPending} onClick={() => setDeleteConfirmOpen(false)}>Hủy</button>
+              <button className="danger-button" type="button" disabled={isPending} onClick={confirmDeleteCollection}>
+                {isPending ? <span className="spinner" aria-hidden="true" /> : null}
+                {isPending ? "Đang xóa..." : "Xóa khoản thu"}
+              </button>
             </div>
           </section>
         </div>
