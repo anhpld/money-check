@@ -17,6 +17,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
       items: {
         orderBy: { sessionMember: { session: { playedAt: "desc" } } },
         include: {
+          options: { orderBy: { sortOrder: "asc" } },
           sessionMember: {
             include: { session: { select: { title: true, playedAt: true } } },
           },
@@ -63,7 +64,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
 
         <section className="panel transaction-items-panel">
           <div className="transaction-detail-panel-heading"><div><h2>Các khoản trong mã QR</h2><p>{transaction.items.length} khoản tại thời điểm tạo mã</p></div></div>
-          <div className="table-wrap"><table><thead><tr><th>Buổi bóng</th><th>Ngày đá</th><th>Tiền bóng</th><th>Tiền nước</th><th>Tổng</th></tr></thead><tbody>{transaction.items.map((item) => <tr key={item.id}><td><strong>{item.sessionMember.session.title}</strong></td><td>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "UTC" }).format(item.sessionMember.session.playedAt)}</td><td>{formatVnd(item.footballAmount)}</td><td>{formatVnd(item.waterAmount)}</td><td><strong className="amount-emphasis">{formatVnd(item.expectedAmount)}</strong></td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Buổi bóng</th><th>Ngày đá</th><th>Tiền bóng</th><th>Tùy chọn</th><th>Tổng</th></tr></thead><tbody>{transaction.items.map((item) => <tr key={item.id}><td><strong>{item.sessionMember.session.title}</strong></td><td>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "UTC" }).format(item.sessionMember.session.playedAt)}</td><td>{formatVnd(item.footballAmount)}</td><td>{item.options.length ? <div className="transaction-option-list">{item.options.map((option) => <span key={option.id}>{option.name}: <strong>{formatVnd(option.amount)}</strong></span>)}</div> : "—"}</td><td><strong className="amount-emphasis">{formatVnd(item.expectedAmount)}</strong></td></tr>)}</tbody></table></div>
         </section>
       </div>
     </AdminShell>

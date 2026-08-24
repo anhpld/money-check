@@ -3,7 +3,8 @@ import { sendConfiguredMessengerMessage, type MessengerMessageResult } from "@/l
 type PaymentNotificationItem = {
   title: string;
   playedAt: Date;
-  waterAmount: number;
+  footballAmount: number;
+  options: Array<{ name: string; amount: number }>;
 };
 
 type PaymentNotification = {
@@ -27,9 +28,13 @@ function formatDayMonth(date: Date) {
 }
 
 function buildMessage(notification: PaymentNotification) {
-  const sessionDescriptions = notification.items.map((item) =>
-    `${item.title} ${formatDayMonth(item.playedAt)} - ${item.waterAmount > 0 ? `có nước ${formatVnd(item.waterAmount)}` : "không nước"}`,
-  );
+  const sessionDescriptions = notification.items.map((item) => {
+    const details = [
+      `tiền bóng ${formatVnd(item.footballAmount)}`,
+      ...item.options.map((option) => `${option.name} ${formatVnd(option.amount)}`),
+    ];
+    return `${item.title} ${formatDayMonth(item.playedAt)} - ${details.join(", ")}`;
+  });
   const heading = `Đã nhận được ${formatVnd(notification.amount)} từ ${notification.userName}`;
 
   const mismatch = notification.status === "UNDERPAID" || notification.status === "OVERPAID"

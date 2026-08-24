@@ -31,8 +31,9 @@ export default async function ClientPage() {
       outstanding: debts.reduce((sum, amount) => sum + amount, 0),
       recentlyPaid: user.id === recentPaidUserId,
     };
-  }).sort((a, b) => Number(b.recentlyPaid) - Number(a.recentlyPaid)
+  }).sort((a, b) => Number(b.outstanding > 0) - Number(a.outstanding > 0)
     || b.debtCount - a.debtCount
+    || Number(b.recentlyPaid) - Number(a.recentlyPaid)
     || a.name.localeCompare(b.name, "vi"));
 
   return (

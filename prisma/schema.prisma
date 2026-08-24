@@ -32,37 +32,57 @@ enum PaymentRequestStatus {
 }
 
 model FootballSession {
-  id          String          @id @default(uuid())
-  title       String
-  playedAt    DateTime        @db.Date
-  totalAmount Int
-  defaultWaterAmount Int      @default(0)
-  note        String?
-  status      SessionStatus   @default(DRAFT)
-  publishedAt DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  members     SessionMember[]
+  id            String                @id @default(uuid())
+  title         String
+  playedAt      DateTime              @db.Date
+  totalAmount   Int
+  note          String?
+  status        SessionStatus         @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  members       SessionMember[]
+  chargeOptions SessionChargeOption[]
 }
 
 model SessionMember {
-  id              String             @id @default(uuid())
-  sessionId       String
-  userId          String
-  slots           Int                @default(1)
-  amountDue       Int
-  amountPaid      Int                @default(0)
-  manualPaidAt    DateTime?
-  note            String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  session         FootballSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user            User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  adjustments     ChargeAdjustment[]
-  paymentItems    PaymentRequestItem[]
+  id                   String                @id @default(uuid())
+  sessionId            String
+  userId               String
+  slots                Int                   @default(1)
+  amountDue            Int
+  amountPaid           Int                   @default(0)
+  manualPaidAt         DateTime?
+  manualFootballAmount Int?
+  note                 String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  session              FootballSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  adjustments          ChargeAdjustment[]
+  paymentItems         PaymentRequestItem[]
+  manualPaymentOptions ManualPaymentOption[]
 
   @@unique([sessionId, userId])
   @@index([userId])
+}
+
+model SessionChargeOption {
+  id                String                     @id @default(uuid())
+  sessionId         String
+  name              String
+  defaultAmount     Int
+  autoSelected      Boolean                    @default(false)
+  allowCustomAmount Boolean                    @default(false)
+  sortOrder         Int                        @default(0)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  session           FootballSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  paymentSnapshots  PaymentRequestItemOption[]
+  manualSnapshots   ManualPaymentOption[]
+
+  @@unique([sessionId, name])
+  @@index([sessionId, sortOrder])
 }
 
 model ChargeAdjustment {
@@ -98,18 +118,48 @@ model PaymentRequest {
 // PaymentRequest per user. Prisma schema syntax cannot represent partial indexes.
 
 model PaymentRequestItem {
-  id               String         @id @default(uuid())
+  id               String                     @id @default(uuid())
   paymentRequestId String
   sessionMemberId  String
   footballAmount   Int
-  waterAmount      Int            @default(0)
   expectedAmount   Int
-  createdAt        DateTime       @default(now())
-  paymentRequest   PaymentRequest @relation(fields: [paymentRequestId], references: [id], onDelete: Cascade)
-  sessionMember    SessionMember  @relation(fields: [sessionMemberId], references: [id], onDelete: Restrict)
+  createdAt        DateTime                   @default(now())
+  paymentRequest   PaymentRequest             @relation(fields: [paymentRequestId], references: [id], onDelete: Cascade)
+  sessionMember    SessionMember              @relation(fields: [sessionMemberId], references: [id], onDelete: Restrict)
+  options          PaymentRequestItemOption[]
 
   @@unique([paymentRequestId, sessionMemberId])
   @@index([sessionMemberId])
+}
+
+model PaymentRequestItemOption {
+  id                   String               @id @default(uuid())
+  paymentRequestItemId String
+  optionId             String?
+  name                 String
+  amount               Int
+  sortOrder            Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  paymentRequestItem   PaymentRequestItem   @relation(fields: [paymentRequestItemId], references: [id], onDelete: Cascade)
+  option               SessionChargeOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([paymentRequestItemId, sortOrder])
+  @@index([optionId])
+}
+
+model ManualPaymentOption {
+  id              String               @id @default(uuid())
+  sessionMemberId String
+  optionId        String?
+  name            String
+  amount          Int
+  sortOrder       Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  sessionMember   SessionMember        @relation(fields: [sessionMemberId], references: [id], onDelete: Cascade)
+  option          SessionChargeOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([sessionMemberId, sortOrder])
+  @@index([optionId])
 }
 
 model WebhookLog {

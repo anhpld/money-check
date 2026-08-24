@@ -26,7 +26,8 @@ type ProcessedPayment = {
     sessionMemberId: string;
     title: string;
     playedAt: Date;
-    waterAmount: number;
+    footballAmount: number;
+    options: Array<{ name: string; amount: number }>;
     expectedAmount: number;
   }>;
 };
@@ -167,6 +168,7 @@ export async function POST(request: Request) {
           user: { select: { id: true, name: true } },
           items: {
             include: {
+              options: { orderBy: { sortOrder: "asc" } },
               sessionMember: {
                 include: { session: { select: { title: true, playedAt: true } } },
               },
@@ -181,7 +183,8 @@ export async function POST(request: Request) {
         sessionMemberId: item.sessionMemberId,
         title: item.sessionMember.session.title,
         playedAt: item.sessionMember.session.playedAt,
-        waterAmount: item.waterAmount,
+        footballAmount: item.footballAmount,
+        options: item.options.map((option) => ({ name: option.name, amount: option.amount })),
         expectedAmount: item.expectedAmount,
       }));
 
@@ -238,7 +241,7 @@ export async function POST(request: Request) {
         for (const item of paymentRequest.items) {
           await transaction.sessionMember.update({
             where: { id: item.sessionMemberId },
-            data: { amountPaid: { increment: item.expectedAmount } },
+            data: { amountPaid: { increment: item.footballAmount } },
           });
         }
       }

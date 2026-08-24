@@ -12,13 +12,19 @@ export type ClientDebtItem = {
   playedAt: string;
   slots: number;
   footballAmount: number;
-  defaultWaterAmount: number;
+  chargeOptions: Array<{
+    id: string;
+    name: string;
+    defaultAmount: number;
+    autoSelected: boolean;
+    allowCustomAmount: boolean;
+  }>;
   totalOutstanding: number;
   note: string | null;
   sessionNote: string | null;
 };
 
-type WaterSelection = { included: boolean; amount: number };
+type OptionSelection = { included: boolean; amount: number };
 type Settlement = {
   status: "PAID" | "UNDERPAID" | "OVERPAID" | "CANCELLED" | "REVIEW_REQUIRED";
   expectedAmount: number;
@@ -29,11 +35,14 @@ const PAYMENT_ACCOUNT = "0978618991";
 const POLLING_INTERVAL_MS = 1_000;
 const MAX_POLLING_ATTEMPTS = 600;
 
-function createDefaultWaterSelections(debts: ClientDebtItem[]) {
-  return Object.fromEntries(debts.map((debt) => [debt.sessionMemberId, {
-    included: true,
-    amount: debt.defaultWaterAmount,
-  }]));
+function createDefaultOptionSelections(debts: ClientDebtItem[]) {
+  return Object.fromEntries(debts.map((debt) => [
+    debt.sessionMemberId,
+    Object.fromEntries(debt.chargeOptions.map((option) => [option.id, {
+      included: option.autoSelected,
+      amount: option.defaultAmount,
+    }])),
+  ])) as Record<string, Record<string, OptionSelection>>;
 }
 
 export function PaymentDialog({ userId, debts }: { userId: string; debts: ClientDebtItem[] }) {
@@ -45,12 +54,15 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
   const [settlement, setSettlement] = useState<Settlement | null>(null);
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const [payment, setPayment] = useState<Extract<PaymentRequestResult, { status: "success" }>["request"] | null>(null);
-  const [water, setWater] = useState<Record<string, WaterSelection>>(() => createDefaultWaterSelections(debts));
+  const [optionSelections, setOptionSelections] = useState<Record<string, Record<string, OptionSelection>>>(() => createDefaultOptionSelections(debts));
 
   const reviewTotal = useMemo(() => debts.reduce((sum, debt) => {
-    const selection = water[debt.sessionMemberId];
-    return sum + debt.footballAmount + (selection?.included ? selection.amount : 0);
-  }, 0), [debts, water]);
+    const optionsTotal = debt.chargeOptions.reduce((optionSum, option) => {
+      const selection = optionSelections[debt.sessionMemberId]?.[option.id];
+      return optionSum + (selection?.included ? selection.amount : 0);
+    }, 0);
+    return sum + debt.footballAmount + optionsTotal;
+  }, 0), [debts, optionSelections]);
 
   useEffect(() => {
     if (!open) return;
@@ -112,14 +124,17 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
     return () => clearTimeout(timer);
   }, [router, settlement?.status]);
 
-  function toggleWater(debt: ClientDebtItem) {
-    setWater((current) => {
-      const previous = current[debt.sessionMemberId];
+  function toggleOption(debt: ClientDebtItem, option: ClientDebtItem["chargeOptions"][number]) {
+    setOptionSelections((current) => {
+      const previous = current[debt.sessionMemberId]?.[option.id];
       return {
         ...current,
         [debt.sessionMemberId]: {
-          included: !previous?.included,
-          amount: previous?.amount || debt.defaultWaterAmount,
+          ...current[debt.sessionMemberId],
+          [option.id]: {
+            included: !previous?.included,
+            amount: previous?.amount ?? option.defaultAmount,
+          },
         },
       };
     });
@@ -132,7 +147,12 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
         userId,
         sessions: debts.map((debt) => ({
           sessionMemberId: debt.sessionMemberId,
-          waterAmount: water[debt.sessionMemberId]?.included ? water[debt.sessionMemberId].amount : 0,
+          options: debt.chargeOptions
+            .filter((option) => optionSelections[debt.sessionMemberId]?.[option.id]?.included)
+            .map((option) => ({
+              optionId: option.id,
+              amount: optionSelections[debt.sessionMemberId]?.[option.id]?.amount ?? option.defaultAmount,
+            })),
         })),
       });
       if (result.status === "error") {
@@ -154,7 +174,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
     setQrFailed(false);
     setSettlement(null);
     setPollingTimedOut(false);
-    setWater(createDefaultWaterSelections(debts));
+    setOptionSelections(createDefaultOptionSelections(debts));
     setError("");
   }
 
@@ -178,7 +198,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
         <header className="client-debt-overview has-debt">
           <div>
             <h2>Khoản cần thanh toán</h2>
-            <p>{debts.length} buổi còn nợ · Tích nước nếu có uống</p>
+            <p>{debts.length} buổi còn nợ · Chọn thêm các tùy chọn nếu có</p>
           </div>
         </header>
         <div className="client-debt-column-head" aria-hidden="true">
@@ -188,7 +208,6 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
         </div>
         <div className="client-debt-list">
           {debts.map((debt) => {
-            const selection = water[debt.sessionMemberId];
             return (
               <article className="client-debt-card" key={debt.sessionMemberId}>
                 <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
@@ -201,11 +220,19 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 <strong className="debt-amount">{formatVnd(debt.footballAmount)}</strong>
                 <div className="debt-extra-options">
                   <span className="debt-options-label">Tùy chọn</span>
-                  <div className="debt-water-control">
-                    <label className="water-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleWater(debt)} /><i>{selection?.included ? "✓" : ""}</i><span>Có nước</span></label>
-                    {selection?.included ? (
-                      <div className="water-money-input"><input aria-label={`Tiền nước ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setWater((current) => ({ ...current, [debt.sessionMemberId]: { included: true, amount: parseMoneyInput(event.target.value) } }))} placeholder="0" /><span>đ</span></div>
-                    ) : <span className="water-cost-empty">0 đ</span>}
+                  <div className="debt-option-list">
+                    {debt.chargeOptions.map((option) => {
+                      const selection = optionSelections[debt.sessionMemberId]?.[option.id];
+                      return (
+                        <div className="debt-option-control" key={option.id}>
+                          <label className="option-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleOption(debt, option)} /><i>{selection?.included ? "✓" : ""}</i><span>{option.name}</span></label>
+                          {selection?.included && option.allowCustomAmount ? (
+                            <div className="option-money-input"><input aria-label={`${option.name} ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setOptionSelections((current) => ({ ...current, [debt.sessionMemberId]: { ...current[debt.sessionMemberId], [option.id]: { included: true, amount: parseMoneyInput(event.target.value) } } }))} placeholder="0" /><span>đ</span></div>
+                          ) : <span className="option-cost">{formatVnd(selection?.included ? option.defaultAmount : 0)}</span>}
+                        </div>
+                      );
+                    })}
+                    {!debt.chargeOptions.length ? <span className="option-empty">Không có chi phí tùy chọn</span> : null}
                   </div>
                 </div>
               </article>

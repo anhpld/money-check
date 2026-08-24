@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { markMemberPaidManually, saveCollection } from "@/app/collections/actions";
-import type { CollectionEditorData, CollectionUser } from "@/app/collections/types";
+import type { CollectionChargeOption, CollectionEditorData, CollectionUser, PaidBreakdown } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 
 export function CollectionEditor({ users, initial }: { users: CollectionUser[]; initial?: CollectionEditorData }) {
@@ -17,7 +17,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0);
-  const [defaultWaterAmount, setDefaultWaterAmount] = useState(initial?.defaultWaterAmount ?? 0);
+  const [chargeOptions, setChargeOptions] = useState<CollectionChargeOption[]>(initial?.chargeOptions ?? []);
   const [selectedIds, setSelectedIds] = useState<string[]>(initial?.members.map((member) => member.userId) ?? []);
   const [slots, setSlots] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.slots]) ?? []),
@@ -34,14 +34,30 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const [manualPaidUsers, setManualPaidUsers] = useState<Record<string, boolean>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, Boolean(member.manualPaidAt)]) ?? []),
   );
+  const [paidBreakdowns, setPaidBreakdowns] = useState<Record<string, PaidBreakdown>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.paidBreakdown]) ?? []),
+  );
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>(
+    Object.fromEntries(initial?.members.filter((member) => member.note.trim()).map((member) => [member.userId, true]) ?? []),
+  );
   const [manualPaymentTarget, setManualPaymentTarget] = useState<{ memberId: string; userId: string; name: string; amountDue: number } | null>(null);
+  const [manualOptionSelections, setManualOptionSelections] = useState<Record<string, { included: boolean; amount: number }>>({});
   const [manualPaymentError, setManualPaymentError] = useState("");
 
   const membersByUser = useMemo(
     () => new Map(initial?.members.map((member) => [member.userId, member]) ?? []),
     [initial],
   );
-  const selectedUsers = users.filter((user) => selectedIds.includes(user.id));
+  const selectedUsers = users
+    .filter((user) => selectedIds.includes(user.id))
+    .sort((left, right) => {
+      const rank = (userId: string) => {
+        const paid = paidAmounts[userId] ?? 0;
+        const due = amounts[userId] ?? 0;
+        return paid <= 0 ? 0 : paid < due ? 1 : 2;
+      };
+      return rank(left.id) - rank(right.id) || left.name.localeCompare(right.name, "vi");
+    });
   const totalSlots = selectedIds.reduce((sum, userId) => sum + (slots[userId] ?? 1), 0);
   const amountPerSlot = totalSlots
     ? roundUpToOneThousand(totalAmount / totalSlots)
@@ -59,7 +75,6 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   function changeTotal(value: number) {
     const nextTotal = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     setTotalAmount(nextTotal);
-    if (selectedIds.length) distributeEvenly(selectedIds, nextTotal);
   }
 
   function toggleUser(userId: string) {
@@ -74,23 +89,50 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
       else next[userId] = "";
       return next;
     });
+    setAmounts((current) => {
+      const next = { ...current };
+      if (isSelected) delete next[userId];
+      else next[userId] = 0;
+      return next;
+    });
     setSelectedIds(nextIds);
     setSlots(nextSlots);
-    distributeEvenly(nextIds, totalAmount, nextSlots);
   }
 
   function selectAll() {
     const nextIds = selectedIds.length === users.length ? [] : users.map((user) => user.id);
     const nextSlots = Object.fromEntries(nextIds.map((id) => [id, slots[id] ?? 1]));
+    setAmounts((current) => Object.fromEntries(nextIds.map((id) => [id, current[id] ?? 0])));
     setSelectedIds(nextIds);
     setSlots(nextSlots);
-    distributeEvenly(nextIds, totalAmount, nextSlots);
   }
 
   function changeSlots(userId: string, difference: number) {
     const nextSlots = { ...slots, [userId]: Math.max(1, (slots[userId] ?? 1) + difference) };
     setSlots(nextSlots);
-    distributeEvenly(selectedIds, totalAmount, nextSlots);
+  }
+
+  function addChargeOption() {
+    setChargeOptions((current) => [...current, {
+      id: crypto.randomUUID(),
+      name: "",
+      defaultAmount: 0,
+      autoSelected: false,
+      allowCustomAmount: false,
+    }]);
+  }
+
+  function updateChargeOption(id: string, patch: Partial<CollectionChargeOption>) {
+    setChargeOptions((current) => current.map((option) => option.id === id ? { ...option, ...patch } : option));
+  }
+
+  function openManualPayment(target: { memberId: string; userId: string; name: string; amountDue: number }) {
+    setManualPaymentError("");
+    setManualOptionSelections(Object.fromEntries(chargeOptions.map((option) => [option.id, {
+      included: option.autoSelected,
+      amount: option.defaultAmount,
+    }])));
+    setManualPaymentTarget(target);
   }
 
   function validate() {
@@ -99,6 +141,9 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     if (totalAmount <= 0) return "Nhập tổng tiền lớn hơn 0.";
     if (!selectedIds.length) return "Chọn ít nhất một người tham gia.";
     if (selectedIds.some((id) => !Number.isInteger(amounts[id]) || amounts[id] < 0)) return "Kiểm tra lại số tiền của người tham gia.";
+    const optionNames = chargeOptions.map((option) => option.name.trim().toLocaleLowerCase("vi-VN"));
+    if (chargeOptions.some((option) => !option.name.trim() || option.name.trim().length > 100 || option.defaultAmount < 0)) return "Kiểm tra lại các tùy chọn chi phí.";
+    if (new Set(optionNames).size !== optionNames.length) return "Tên tùy chọn chi phí không được trùng nhau.";
     return "";
   }
 
@@ -129,7 +174,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
         playedAt,
         note,
         totalAmount,
-        defaultWaterAmount,
+        chargeOptions,
         status,
         members: selectedIds.map((userId) => ({ userId, slots: slots[userId] ?? 1, amountDue: amounts[userId] ?? 0, note: memberNotes[userId] ?? "" })),
       });
@@ -147,17 +192,28 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     const target = manualPaymentTarget;
     setManualPaymentError("");
     startTransition(async () => {
-      const result = await markMemberPaidManually(target.memberId);
+      const result = await markMemberPaidManually(
+        target.memberId,
+        chargeOptions
+          .filter((option) => manualOptionSelections[option.id]?.included)
+          .map((option) => ({ optionId: option.id, amount: manualOptionSelections[option.id]?.amount ?? option.defaultAmount })),
+      );
       if (result.status === "error") {
         setManualPaymentError(result.message);
         return;
       }
       setPaidAmounts((current) => ({ ...current, [target.userId]: result.amountPaid }));
       setManualPaidUsers((current) => ({ ...current, [target.userId]: Boolean(result.manualPaidAt) }));
+      setPaidBreakdowns((current) => ({ ...current, [target.userId]: result.paidBreakdown }));
       setManualPaymentTarget(null);
       router.refresh();
     });
   }
+
+  const manualOptionsTotal = chargeOptions.reduce((sum, option) => {
+    const selection = manualOptionSelections[option.id];
+    return sum + (selection?.included ? selection.amount : 0);
+  }, 0);
 
   if (preview) {
     return (
@@ -175,7 +231,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
           <div><span>Buổi bóng</span><strong>{title}</strong></div>
           <div><span>Ngày đá</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(playedAt))}</strong></div>
           <div><span>Người tham gia</span><strong>{selectedIds.length} người · {totalSlots} slot</strong></div>
-          <div><span>Tiền nước gợi ý</span><strong>{formatVnd(defaultWaterAmount)}</strong></div>
+          <div><span>Tùy chọn chi phí</span><strong>{chargeOptions.length} tùy chọn</strong></div>
         </section>
 
         <section className="money-overview">
@@ -233,14 +289,29 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
             <div className="field-group full-field"><label htmlFor="collection-title">Tên buổi bóng</label><input id="collection-title" className="plain-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ví dụ: Đá bóng tối thứ 5" maxLength={100} /></div>
             <div className="field-group full-field"><label htmlFor="played-at">Ngày đá</label><input id="played-at" className="plain-input" type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></div>
             <div className="field-group full-field"><label htmlFor="total-amount">Tổng tiền</label><div className="money-input"><input id="total-amount" type="text" inputMode="numeric" value={formatMoneyInput(totalAmount)} onChange={(event) => changeTotal(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div></div>
-            <div className="field-group full-field"><label htmlFor="water-amount">Tiền nước gợi ý</label><div className="money-input"><input id="water-amount" type="text" inputMode="numeric" value={formatMoneyInput(defaultWaterAmount)} onChange={(event) => setDefaultWaterAmount(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div><small className="field-hint">Client sẽ thấy số tiền này khi tích “Có uống nước” và có thể sửa lại.</small></div>
+            <div className="field-group full-field charge-options-field">
+              <div className="charge-options-heading"><div><label>Tùy chọn chi phí</label><small className="field-hint">Ví dụ tiền nước, tiền áo. Tiền bóng luôn là khoản bắt buộc.</small></div><button type="button" onClick={addChargeOption}>+ Thêm tùy chọn</button></div>
+              <div className="charge-option-list">
+                {chargeOptions.map((option, index) => (
+                  <div className="charge-option-row" key={option.id}>
+                    <span className="charge-option-order">{index + 1}</span>
+                    <input className="plain-input" aria-label={`Tên tùy chọn ${index + 1}`} value={option.name} onChange={(event) => updateChargeOption(option.id, { name: event.target.value })} placeholder="Ví dụ: Tiền nước" maxLength={100} />
+                    <div className="money-input"><input aria-label={`Số tiền mặc định ${option.name || index + 1}`} type="text" inputMode="numeric" value={formatMoneyInput(option.defaultAmount)} onChange={(event) => updateChargeOption(option.id, { defaultAmount: parseMoneyInput(event.target.value) })} placeholder="0" /><span>VNĐ</span></div>
+                    <label className="charge-option-check"><input type="checkbox" checked={option.autoSelected} onChange={(event) => updateChargeOption(option.id, { autoSelected: event.target.checked })} /><span>Tự tích</span></label>
+                    <label className="charge-option-check"><input type="checkbox" checked={option.allowCustomAmount} onChange={(event) => updateChargeOption(option.id, { allowCustomAmount: event.target.checked })} /><span>Cho sửa tiền</span></label>
+                    <button className="charge-option-remove" type="button" aria-label={`Xóa ${option.name || `tùy chọn ${index + 1}`}`} onClick={() => setChargeOptions((current) => current.filter((item) => item.id !== option.id))}>×</button>
+                  </div>
+                ))}
+                {!chargeOptions.length ? <div className="charge-option-empty">Chưa có tùy chọn. Người dùng chỉ thanh toán tiền bóng.</div> : null}
+              </div>
+            </div>
             <div className="field-group full-field"><label htmlFor="collection-note">Ghi chú</label><textarea id="collection-note" className="plain-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Thông tin thêm về buổi bóng..." maxLength={500} /></div>
           </div>
         </section>
 
         <section className="panel editor-panel participant-panel">
           <div className="editor-section-heading participant-heading">
-            <span>02</span><div><h2>Chọn người tham gia</h2><p>Thêm/bớt người sẽ chia đều lại toàn bộ.</p></div>
+            <span>02</span><div><h2>Chọn người tham gia</h2><p>Tiền chỉ được tính lại khi bạn bấm “Chia đều lại”.</p></div>
             <button type="button" onClick={selectAll}>{selectedIds.length === users.length && users.length ? "Bỏ chọn" : "Chọn tất cả"}</button>
           </div>
           <div className="participant-list">
@@ -270,18 +341,19 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
             </button>
           </div>
           <div className="allocation-list">
-            <div className="allocation-columns" aria-hidden="true"><span>Người tham gia</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
+            <div className="allocation-columns" aria-hidden="true"><span>Người tham gia</span><span>Trạng thái</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
             {selectedUsers.map((user, index) => {
               const member = membersByUser.get(user.id);
               const amountPaid = paidAmounts[user.id] ?? 0;
               const amountDue = amounts[user.id] ?? 0;
               const paymentState = amountPaid <= 0 ? "unpaid" : amountPaid >= amountDue ? "paid" : "partial";
+              const paidBreakdown = paidBreakdowns[user.id] ?? { footballAmount: amountPaid, options: [] };
+              const totalPaid = paidBreakdown.footballAmount + paidBreakdown.options.reduce((sum, option) => sum + option.amount, 0);
               return (
-              <div className="allocation-row" key={user.id}>
-                <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small></div></div>
-                <div className={`allocation-paid ${paymentState}`}>
-                  <small className="allocation-cell-label">Đã trả</small>
-                  <strong>{formatVnd(amountPaid)}</strong>
+              <div className={`allocation-row ${paymentState}`} key={user.id}>
+                <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><div className="allocation-user-meta"><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small><button type="button" onClick={() => setExpandedNotes((current) => ({ ...current, [user.id]: !current[user.id] }))}>{expandedNotes[user.id] ? "Đóng ghi chú" : memberNotes[user.id] ? "Ghi chú" : "Ghi chú +"}</button></div></div></div>
+                <div className={`allocation-status ${paymentState}`}>
+                  <small className="allocation-cell-label">Trạng thái</small>
                   <div className="allocation-payment-badges">
                     <span className="payment-state-badge">{paymentState === "paid" ? "Đã đủ" : paymentState === "partial" ? "Một phần" : "Chưa trả"}</span>
                     {manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}
@@ -291,14 +363,22 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                       className="manual-paid-button"
                       type="button"
                       disabled={isPending}
-                      onClick={() => {
-                        setManualPaymentError("");
-                        setManualPaymentTarget({ memberId: member.id, userId: user.id, name: user.name, amountDue });
-                      }}
+                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, amountDue })}
                     >
-                      Đã thanh toán thủ công
+                      Ghi nhận thanh toán
                     </button>
                   ) : null}
+                </div>
+                <div className={`allocation-paid ${paymentState}`}>
+                  <small className="allocation-cell-label">Đã trả</small>
+                  {totalPaid > 0 ? <strong>{formatVnd(totalPaid)}</strong> : null}
+                  {totalPaid > 0 ? (
+                    <div className="allocation-paid-breakdown">
+                      <span>Tiền bóng: {formatVnd(paidBreakdown.footballAmount)}</span>
+                      {paidBreakdown.options.map((option) => <span key={option.name}>{option.name}: {formatVnd(option.amount)}</span>)}
+                    </div>
+                  ) : null}
+                  {totalPaid <= 0 ? <span className="allocation-paid-empty">—</span> : null}
                 </div>
                 <div className="allocation-slot-cell">
                   <small className="allocation-cell-label">Số slot</small>
@@ -312,7 +392,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                   <small className="allocation-cell-label">Phải đóng</small>
                   <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>
                 </div>
-                <label className="allocation-note-cell"><span>Ghi chú cho {user.name}</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="Ví dụ: Bổ sung tiền áo, miễn tiền nước..." maxLength={500} /></label>
+                {expandedNotes[user.id] ? <label className="allocation-note-cell"><span>Ghi chú</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={`Nhập ghi chú cho ${user.name}...`} maxLength={500} /></label> : null}
               </div>
               );
             })}
@@ -335,7 +415,21 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                 <p>{manualPaymentTarget.name}</p>
               </div>
             </div>
-            <div className="manual-payment-amount"><span>Số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.amountDue)}</strong></div>
+            <div className="manual-payment-breakdown">
+              <div><span>Tiền bóng</span><strong>{formatVnd(manualPaymentTarget.amountDue)}</strong></div>
+              {chargeOptions.map((option) => {
+                const selection = manualOptionSelections[option.id];
+                return (
+                  <div className="manual-option-row" key={option.id}>
+                    <label><input type="checkbox" checked={selection?.included ?? false} onChange={(event) => setManualOptionSelections((current) => ({ ...current, [option.id]: { included: event.target.checked, amount: current[option.id]?.amount ?? option.defaultAmount } }))} /><span>{option.name}</span></label>
+                    {selection?.included && option.allowCustomAmount ? (
+                      <div className="water-money-input"><input type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setManualOptionSelections((current) => ({ ...current, [option.id]: { included: true, amount: parseMoneyInput(event.target.value) } }))} /><span>đ</span></div>
+                    ) : <strong>{formatVnd(selection?.included ? option.defaultAmount : 0)}</strong>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="manual-payment-amount"><span>Tổng số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.amountDue + manualOptionsTotal)}</strong></div>
             <p className="manual-payment-note">Mã QR đang chờ sẽ tự động được hủy.</p>
             {manualPaymentError ? <div className="editor-error manual-payment-error" role="alert">! {manualPaymentError}</div> : null}
             <div className="dialog-actions">

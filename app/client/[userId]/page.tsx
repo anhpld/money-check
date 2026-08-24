@@ -16,7 +16,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
       sessionMembers: {
         where: { session: { status: "PUBLISHED" } },
         orderBy: { session: { playedAt: "desc" } },
-        include: { session: true },
+        include: { session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } } },
       },
     },
   });
@@ -29,7 +29,13 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
       playedAt: member.session.playedAt.toISOString(),
       slots: member.slots,
       footballAmount: Math.max(member.amountDue - member.amountPaid, 0),
-      defaultWaterAmount: member.session.defaultWaterAmount,
+      chargeOptions: member.session.chargeOptions.map((option) => ({
+        id: option.id,
+        name: option.name,
+        defaultAmount: option.defaultAmount,
+        autoSelected: option.autoSelected,
+        allowCustomAmount: option.allowCustomAmount,
+      })),
       totalOutstanding: Math.max(member.amountDue - member.amountPaid, 0),
       note: member.note,
       sessionNote: member.session.note,

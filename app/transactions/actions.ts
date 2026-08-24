@@ -36,7 +36,7 @@ export async function confirmTransaction(id: string): Promise<ConfirmTransaction
       for (const item of payment.items) {
         await transaction.sessionMember.update({
           where: { id: item.sessionMemberId },
-          data: { amountPaid: { increment: item.expectedAmount } },
+          data: { amountPaid: { increment: item.footballAmount } },
         });
       }
     });

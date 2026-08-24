@@ -20,7 +20,18 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
     }),
     getPrisma().footballSession.findUnique({
       where: { id },
-      include: { members: { select: { id: true, userId: true, slots: true, amountDue: true, amountPaid: true, manualPaidAt: true, note: true } } },
+      include: {
+        chargeOptions: { orderBy: { sortOrder: "asc" } },
+        members: {
+          include: {
+            manualPaymentOptions: { orderBy: { sortOrder: "asc" } },
+            paymentItems: {
+              where: { paymentRequest: { status: "PAID" } },
+              include: { options: { orderBy: { sortOrder: "asc" } } },
+            },
+          },
+        },
+      },
     }),
   ]);
   if (!session) notFound();
@@ -40,9 +51,36 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
             playedAt: session.playedAt.toISOString().slice(0, 10),
             note: session.note ?? "",
             totalAmount: session.totalAmount,
-            defaultWaterAmount: session.defaultWaterAmount,
+            chargeOptions: session.chargeOptions.map((option) => ({
+              id: option.id,
+              name: option.name,
+              defaultAmount: option.defaultAmount,
+              autoSelected: option.autoSelected,
+              allowCustomAmount: option.allowCustomAmount,
+            })),
             status: session.status,
-            members: session.members.map((member) => ({ ...member, manualPaidAt: member.manualPaidAt?.toISOString() ?? null, note: member.note ?? "" })),
+            members: session.members.map((member) => {
+              const optionAmounts = new Map<string, number>();
+              for (const option of [
+                ...member.paymentItems.flatMap((item) => item.options),
+                ...member.manualPaymentOptions,
+              ]) {
+                optionAmounts.set(option.name, (optionAmounts.get(option.name) ?? 0) + option.amount);
+              }
+              return {
+                id: member.id,
+                userId: member.userId,
+                slots: member.slots,
+                amountDue: member.amountDue,
+                amountPaid: member.amountPaid,
+                manualPaidAt: member.manualPaidAt?.toISOString() ?? null,
+                note: member.note ?? "",
+                paidBreakdown: {
+                  footballAmount: member.paymentItems.reduce((sum, item) => sum + item.footballAmount, member.manualFootballAmount ?? 0),
+                  options: [...optionAmounts].map(([name, amount]) => ({ name, amount })),
+                },
+              };
+            }),
           }}
         />
       </div>

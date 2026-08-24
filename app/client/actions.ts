@@ -26,14 +26,18 @@ export type PaymentRequestResult =
 
 type CreatePaymentInput = {
   userId: string;
-  sessions: Array<{ sessionMemberId: string; waterAmount: number }>;
+  sessions: Array<{
+    sessionMemberId: string;
+    options: Array<{ optionId: string; amount: number }>;
+  }>;
 };
 
+type PaymentOptionSnapshot = { optionId: string | null; name: string; amount: number; sortOrder: number };
 type PaymentItemSnapshot = {
   sessionMemberId: string;
   footballAmount: number;
-  waterAmount: number;
   expectedAmount: number;
+  options: PaymentOptionSnapshot[];
 };
 
 function matchesSnapshot(
@@ -48,8 +52,15 @@ function matchesSnapshot(
     && items.every((item) => {
       const oldItem = oldItems.get(item.sessionMemberId);
       return oldItem?.footballAmount === item.footballAmount
-        && oldItem.waterAmount === item.waterAmount
-        && oldItem.expectedAmount === item.expectedAmount;
+        && oldItem.expectedAmount === item.expectedAmount
+        && oldItem.options.length === item.options.length
+        && item.options.every((option, index) => {
+          const oldOption = oldItem.options[index];
+          return oldOption?.optionId === option.optionId
+            && oldOption.name === option.name
+            && oldOption.amount === option.amount
+            && oldOption.sortOrder === option.sortOrder;
+        });
     });
 }
 
@@ -85,12 +96,19 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
     return { status: "error", message: "Không có khoản nợ nào để thanh toán." };
   }
 
-  const waterByMember = new Map<string, number>();
+  const selectionsByMember = new Map<string, CreatePaymentInput["sessions"][number]["options"]>();
   for (const selection of input.sessions) {
-    if (!selection.sessionMemberId || !Number.isInteger(selection.waterAmount) || selection.waterAmount < 0) {
-      return { status: "error", message: "Số tiền nước không hợp lệ." };
+    if (!selection.sessionMemberId || selectionsByMember.has(selection.sessionMemberId) || !Array.isArray(selection.options)) {
+      return { status: "error", message: "Danh sách khoản thanh toán không hợp lệ." };
     }
-    waterByMember.set(selection.sessionMemberId, selection.waterAmount);
+    const optionIds = new Set<string>();
+    for (const option of selection.options) {
+      if (!option.optionId || optionIds.has(option.optionId) || !Number.isInteger(option.amount) || option.amount < 0) {
+        return { status: "error", message: "Tùy chọn thanh toán không hợp lệ." };
+      }
+      optionIds.add(option.optionId);
+    }
+    selectionsByMember.set(selection.sessionMemberId, selection.options);
   }
 
   try {
@@ -101,31 +119,45 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       include: {
         items: {
           orderBy: { sessionMember: { session: { playedAt: "asc" } } },
-          include: { sessionMember: { include: { session: true } } },
+          include: {
+            options: { orderBy: { sortOrder: "asc" } },
+            sessionMember: { include: { session: true } },
+          },
         },
       },
     });
     const members = await prisma.sessionMember.findMany({
       where: {
-        id: { in: [...waterByMember.keys()] },
+        id: { in: [...selectionsByMember.keys()] },
         userId: input.userId,
         session: { status: "PUBLISHED" },
       },
       orderBy: { session: { playedAt: "asc" } },
-      include: { session: true },
+      include: { session: { include: { chargeOptions: { orderBy: { sortOrder: "asc" } } } } },
     });
-    if (members.length !== waterByMember.size) {
+    if (members.length !== selectionsByMember.size) {
       return { status: "error", message: "Danh sách buổi cần thanh toán không hợp lệ." };
     }
 
     const items = members.map((member) => {
       const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
-      const waterAmount = waterByMember.get(member.id) ?? 0;
+      const availableOptions = new Map(member.session.chargeOptions.map((option) => [option.id, option]));
+      const selectedOptions = (selectionsByMember.get(member.id) ?? []).map((selection) => {
+        const option = availableOptions.get(selection.optionId);
+        if (!option) throw new Error("INVALID_OPTIONS");
+        return {
+          optionId: option.id,
+          name: option.name,
+          amount: option.allowCustomAmount ? selection.amount : option.defaultAmount,
+          sortOrder: option.sortOrder,
+        };
+      }).sort((left, right) => left.sortOrder - right.sortOrder);
+      const optionsAmount = selectedOptions.reduce((sum, option) => sum + option.amount, 0);
       return {
         sessionMemberId: member.id,
         footballAmount,
-        waterAmount,
-        expectedAmount: footballAmount + waterAmount,
+        expectedAmount: footballAmount + optionsAmount,
+        options: selectedOptions,
       };
     }).filter((item) => item.expectedAmount > 0);
     const expectedAmount = items.reduce((sum, item) => sum + item.expectedAmount, 0);
@@ -147,12 +179,17 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
             userId: input.userId,
             code,
             expectedAmount,
-            items: { create: items },
+            items: {
+              create: items.map(({ options, ...item }) => ({ ...item, options: { create: options } })),
+            },
           },
           include: {
             items: {
               orderBy: { sessionMember: { session: { playedAt: "asc" } } },
-              include: { sessionMember: { include: { session: true } } },
+              include: {
+                options: { orderBy: { sortOrder: "asc" } },
+                sessionMember: { include: { session: true } },
+              },
             },
           },
         });
@@ -169,12 +206,17 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
             userId: input.userId,
             code,
             expectedAmount,
-            items: { create: items },
+            items: {
+              create: items.map(({ options, ...item }) => ({ ...item, options: { create: options } })),
+            },
           },
           include: {
             items: {
               orderBy: { sessionMember: { session: { playedAt: "asc" } } },
-              include: { sessionMember: { include: { session: true } } },
+              include: {
+                options: { orderBy: { sortOrder: "asc" } },
+                sessionMember: { include: { session: true } },
+              },
             },
           },
         });
@@ -190,7 +232,10 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
         include: {
           items: {
             orderBy: { sessionMember: { session: { playedAt: "asc" } } },
-            include: { sessionMember: { include: { session: true } } },
+            include: {
+              options: { orderBy: { sortOrder: "asc" } },
+              sessionMember: { include: { session: true } },
+            },
           },
         },
       });
@@ -200,6 +245,9 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       throw new Error("PAYMENT_REQUEST_CHANGED");
     }
   } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_OPTIONS") {
+      return { status: "error", message: "Tùy chọn thanh toán không còn hợp lệ. Vui lòng tải lại trang." };
+    }
     if (error instanceof Error && (error.message === "PAYMENT_REQUEST_NOT_PENDING" || error.message === "PAYMENT_REQUEST_CHANGED")) {
       return { status: "error", message: "Giao dịch vừa được xử lý. Vui lòng tải lại trang." };
     }
