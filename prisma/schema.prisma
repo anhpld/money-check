@@ -44,6 +44,13 @@ enum PaymentRequestStatus {
   REVIEW_REQUIRED
 }
 
+enum DebtReminderRunStatus {
+  RUNNING
+  SENT
+  SKIPPED
+  FAILED
+}
+
 model FootballSession {
   id            String                @id @default(uuid())
   kind          CollectionKind        @default(MATCH)
@@ -197,4 +204,31 @@ model Setting {
 
   @@unique([type, key])
   @@index([type])
+}
+
+model DebtReminderSchedule {
+  id        String            @id @default(uuid())
+  enabled   Boolean           @default(false)
+  days      Int[]
+  times     String[]
+  timezone  String            @default("Asia/Ho_Chi_Minh")
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  runs      DebtReminderRun[]
+}
+
+model DebtReminderRun {
+  id            String                @id @default(uuid())
+  scheduleId    String
+  scheduledFor  DateTime
+  status        DebtReminderRunStatus @default(RUNNING)
+  debtorCount   Int                   @default(0)
+  message       String?               @db.Text
+  error         String?               @db.Text
+  createdAt     DateTime              @default(now())
+  finishedAt    DateTime?
+  schedule      DebtReminderSchedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, scheduledFor])
+  @@index([createdAt])
 }

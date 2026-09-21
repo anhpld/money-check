@@ -9,19 +9,23 @@ import type { CollectionChargeOption, CollectionEditorData, CollectionOpponent, 
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 import { getPaidBreakdownTotal } from "@/lib/payment-totals";
 
+function sanitizeStatInput(value: string) {
+  return value.replace(/\D/g, "").slice(0, 3).replace(/^0+(?=\d)/, "");
+}
+
 export function CollectionEditor({ users, opponents, initial, initialKind = "MATCH" }: { users: CollectionUser[]; opponents: CollectionOpponent[]; initial?: CollectionEditorData; initialKind?: "MATCH" | "GENERAL" }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
-  const [kind, setKind] = useState<"MATCH" | "GENERAL">(initial?.kind ?? initialKind);
+  const kind: "MATCH" | "GENERAL" = initial?.kind ?? initialKind;
   const [title, setTitle] = useState(initial?.title ?? "");
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? "");
   const [opponentId, setOpponentId] = useState(initial?.opponentId ?? "");
   const [addingOpponent, setAddingOpponent] = useState(false);
   const [newOpponentName, setNewOpponentName] = useState("");
-  const [ourScore, setOurScore] = useState<number | null>(initial?.ourScore ?? null);
-  const [opponentScore, setOpponentScore] = useState<number | null>(initial?.opponentScore ?? null);
+  const [ourScore, setOurScore] = useState(initial?.ourScore === null || initial?.ourScore === undefined ? "" : String(initial.ourScore));
+  const [opponentScore, setOpponentScore] = useState(initial?.opponentScore === null || initial?.opponentScore === undefined ? "" : String(initial.opponentScore));
   const [note, setNote] = useState(initial?.note ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0);
   const [chargeOptions, setChargeOptions] = useState<CollectionChargeOption[]>(initial?.chargeOptions ?? []);
@@ -41,11 +45,11 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
   const [exemptionReasons, setExemptionReasons] = useState<Record<string, string>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.exemptionReason]) ?? []),
   );
-  const [goals, setGoals] = useState<Record<string, number>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, member.goals]) ?? []),
+  const [goals, setGoals] = useState<Record<string, string>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, String(member.goals)]) ?? []),
   );
-  const [assists, setAssists] = useState<Record<string, number>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, member.assists]) ?? []),
+  const [assists, setAssists] = useState<Record<string, string>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, String(member.assists)]) ?? []),
   );
   const [paidAmounts, setPaidAmounts] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.amountPaid]) ?? []),
@@ -118,8 +122,8 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     });
     setFeeExemptions((current) => ({ ...current, [userId]: false }));
     setExemptionReasons((current) => ({ ...current, [userId]: "" }));
-    setGoals((current) => ({ ...current, [userId]: 0 }));
-    setAssists((current) => ({ ...current, [userId]: 0 }));
+    setGoals((current) => ({ ...current, [userId]: "0" }));
+    setAssists((current) => ({ ...current, [userId]: "0" }));
     setAmounts((current) => {
       const next = { ...current };
       if (isSelected) delete next[userId];
@@ -173,7 +177,7 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     if (!playedAt) return "Chọn ngày áp dụng.";
     if (totalAmount < 0 || (kind === "GENERAL" && totalAmount === 0)) return "Kiểm tra lại tổng tiền.";
     if (kind === "MATCH" && (addingOpponent ? newOpponentName.trim().length < 2 : !opponentId)) return "Chọn hoặc nhập đối thủ.";
-    if ((ourScore === null) !== (opponentScore === null)) return "Nhập đủ tỷ số của hai đội.";
+    if ((ourScore === "") !== (opponentScore === "")) return "Nhập đủ tỷ số của hai đội.";
     if (!selectedIds.length) return "Chọn ít nhất một người tham gia.";
     if (selectedIds.some((id) => !Number.isInteger(amounts[id]) || amounts[id] < 0)) return "Kiểm tra lại số tiền của người tham gia.";
     const optionNames = chargeOptions.map((option) => option.name.trim().toLocaleLowerCase("vi-VN"));
@@ -210,8 +214,8 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
         playedAt,
         opponentId: addingOpponent ? "" : opponentId,
         newOpponentName: addingOpponent ? newOpponentName : "",
-        ourScore: kind === "MATCH" ? ourScore : null,
-        opponentScore: kind === "MATCH" ? opponentScore : null,
+        ourScore: kind === "MATCH" && ourScore !== "" ? Number(ourScore) : null,
+        opponentScore: kind === "MATCH" && opponentScore !== "" ? Number(opponentScore) : null,
         note,
         totalAmount,
         chargeOptions,
@@ -223,8 +227,8 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
           note: memberNotes[userId] ?? "",
           isFeeExempt: kind === "MATCH" && Boolean(feeExemptions[userId]),
           exemptionReason: exemptionReasons[userId] ?? "",
-          goals: goals[userId] ?? 0,
-          assists: assists[userId] ?? 0,
+          goals: Number(goals[userId] || "0"),
+          assists: Number(assists[userId] || "0"),
         })),
       });
       if (result.status === "error") {
@@ -323,7 +327,7 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
-                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{kind === "MATCH" ? <small>{feeExemptions[user.id] ? "Miễn đóng" : `${goals[user.id] ?? 0} bàn · ${assists[user.id] ?? 0} kiến tạo`}</small> : memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
+                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{kind === "MATCH" ? <small>{feeExemptions[user.id] ? "Miễn đóng" : `${Number(goals[user.id] || "0")} bàn · ${Number(assists[user.id] || "0")} kiến tạo`}</small> : memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
                     {kind === "MATCH" ? <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td> : null}
                     <td><div className="preview-paid-value"><strong>{formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
@@ -355,14 +359,14 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
         <section className="panel editor-panel">
             <div className="editor-section-heading"><span>01</span><div><h2>Thông tin khoản thu</h2><p>Nhập tên để người đóng biết rõ nội dung và số tiền.</p></div></div>
           <div className="editor-fields">
-            <div className="field-group full-field"><label>Loại khoản thu</label><div className="collection-kind-selector"><button className={kind === "MATCH" ? "active" : ""} type="button" onClick={() => setKind("MATCH")}>Trận đấu</button><button className={kind === "GENERAL" ? "active" : ""} type="button" onClick={() => setKind("GENERAL")}>Khoản thu khác</button></div></div>
+            <div className="field-group full-field"><label>Loại khoản thu</label><div className="collection-kind-readonly"><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong><small>{initial ? "Loại khoản thu không thể thay đổi sau khi tạo." : "Đã chọn ở bước tạo khoản thu."}</small></div></div>
             <div className="field-group full-field"><label htmlFor="collection-title">Tên khoản thu</label><input id="collection-title" className="plain-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={kind === "MATCH" ? "Ví dụ: Tiền sân tối thứ 5" : "Ví dụ: Áo đội mùa 2026"} maxLength={100} /></div>
             <div className="field-group full-field"><label htmlFor="played-at">{kind === "MATCH" ? "Ngày đá" : "Ngày áp dụng"}</label><input id="played-at" className="plain-input" type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></div>
             {kind === "MATCH" ? <>
               <div className="field-group full-field"><label htmlFor="opponent">Đối thủ</label><select id="opponent" className="plain-input" value={addingOpponent ? "__new" : opponentId} onChange={(event) => { const create = event.target.value === "__new"; setAddingOpponent(create); if (!create) setOpponentId(event.target.value); }}><option value="">Chọn đối thủ</option>{opponents.map((opponent) => <option value={opponent.id} key={opponent.id}>{opponent.name}</option>)}<option value="__new">+ Thêm đối thủ mới</option></select></div>
               {addingOpponent ? <div className="field-group full-field"><label htmlFor="new-opponent">Tên đối thủ mới</label><input id="new-opponent" className="plain-input" value={newOpponentName} maxLength={100} onChange={(event) => setNewOpponentName(event.target.value)} /></div> : null}
-              <div className="field-group"><label htmlFor="our-score">Bàn FC Đông Đô</label><input id="our-score" className="plain-input" type="number" min="0" value={ourScore ?? ""} onChange={(event) => setOurScore(event.target.value === "" ? null : Number(event.target.value))} placeholder="Chưa có" /></div>
-              <div className="field-group"><label htmlFor="opponent-score">Bàn đối thủ</label><input id="opponent-score" className="plain-input" type="number" min="0" value={opponentScore ?? ""} onChange={(event) => setOpponentScore(event.target.value === "" ? null : Number(event.target.value))} placeholder="Chưa có" /></div>
+              <div className="field-group"><label htmlFor="our-score">Bàn FC Đông Đô</label><input id="our-score" className="plain-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={ourScore} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setOurScore(sanitizeStatInput(event.target.value))} placeholder="Chưa có" /></div>
+              <div className="field-group"><label htmlFor="opponent-score">Bàn đối thủ</label><input id="opponent-score" className="plain-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={opponentScore} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setOpponentScore(sanitizeStatInput(event.target.value))} placeholder="Chưa có" /></div>
             </> : null}
             <div className="field-group full-field"><label htmlFor="total-amount">Tổng tiền</label><div className="money-input"><input id="total-amount" type="text" inputMode="numeric" value={formatMoneyInput(totalAmount)} onChange={(event) => changeTotal(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div></div>
             <div className="field-group full-field charge-options-field">
@@ -471,8 +475,8 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
                 {kind === "MATCH" ? <div className="match-member-details">
                   <label className="match-exempt-toggle"><input type="checkbox" checked={feeExemptions[user.id] ?? false} onChange={(event) => { setFeeExemptions((current) => ({ ...current, [user.id]: event.target.checked })); if (event.target.checked) setAmounts((current) => ({ ...current, [user.id]: 0 })); }} /><span>Miễn đóng</span></label>
                   {feeExemptions[user.id] ? <input className="plain-input" value={exemptionReasons[user.id] ?? ""} onChange={(event) => setExemptionReasons((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="Lý do miễn đóng (không bắt buộc)" maxLength={300} /> : <span />}
-                  <label><span>Bàn thắng</span><input className="compact-number-input" type="number" min="0" value={goals[user.id] ?? 0} onChange={(event) => setGoals((current) => ({ ...current, [user.id]: Math.max(0, Number(event.target.value) || 0) }))} /></label>
-                  <label><span>Kiến tạo</span><input className="compact-number-input" type="number" min="0" value={assists[user.id] ?? 0} onChange={(event) => setAssists((current) => ({ ...current, [user.id]: Math.max(0, Number(event.target.value) || 0) }))} /></label>
+                  <label><span>Bàn thắng</span><input className="compact-number-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={goals[user.id] ?? "0"} onFocus={(event) => event.currentTarget.select()} onBlur={() => { if (!goals[user.id]) setGoals((current) => ({ ...current, [user.id]: "0" })); }} onChange={(event) => setGoals((current) => ({ ...current, [user.id]: sanitizeStatInput(event.target.value) }))} /></label>
+                  <label><span>Kiến tạo</span><input className="compact-number-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={assists[user.id] ?? "0"} onFocus={(event) => event.currentTarget.select()} onBlur={() => { if (!assists[user.id]) setAssists((current) => ({ ...current, [user.id]: "0" })); }} onChange={(event) => setAssists((current) => ({ ...current, [user.id]: sanitizeStatInput(event.target.value) }))} /></label>
                 </div> : null}
                 {expandedNotes[user.id] ? <label className="allocation-note-cell"><span>Ghi chú</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={`Nhập ghi chú cho ${user.name}...`} maxLength={500} /></label> : null}
               </div>

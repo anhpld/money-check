@@ -317,6 +317,9 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
       include: { members: true, chargeOptions: true },
     });
     if (!existing) return { status: "error", message: "Không tìm thấy khoản thu." };
+    if (existing.kind !== input.kind) {
+      return { status: "error", message: "Không thể thay đổi loại khoản thu sau khi đã tạo." };
+    }
 
     const incomingByUser = new Map(input.members.map((member) => [member.userId, member]));
     const removedPaidMember = existing.members.find(
@@ -333,7 +336,6 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
         where: { id: existing.id },
         data: {
           title,
-          kind: input.kind,
           playedAt,
           opponentId,
           ourScore: input.kind === "MATCH" ? input.ourScore : null,

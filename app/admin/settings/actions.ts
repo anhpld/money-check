@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "@/lib/admin-session";
 import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
+import {
+  DEBT_REMINDER_SCHEDULE_ID,
+  DEBT_REMINDER_TIMEZONE,
+  sendDebtReminderMessage,
+} from "@/lib/debt-reminder";
 import { sendConfiguredMessengerMessage } from "@/lib/messenger-message";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -23,6 +28,11 @@ export type SaveSendMessageSettingsResult = {
 };
 
 export type SendDebtReminderResult = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+export type SaveDebtReminderScheduleResult = {
   status: "idle" | "success" | "error";
   message: string;
 };
@@ -263,13 +273,6 @@ export async function syncUsersFromJson(
   }
 }
 
-function buildDebtReminder(groups: Map<number, string[]>) {
-  const lines = [...groups.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([sessionCount, names]) => `${names.sort((left, right) => left.localeCompare(right, "vi")).join(", ")} còn nợ ${sessionCount} buổi.`);
-  return `${lines.join("\n")}`;
-}
-
 export async function sendTestMessengerMessage(
   _previousState: SendDebtReminderResult,
 ): Promise<SendDebtReminderResult> {
@@ -296,47 +299,56 @@ export async function sendDebtReminder(
   void _previousState;
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
 
+  const result = await sendDebtReminderMessage();
+  if (result.status === "sent") return { status: "success", message: `Đã gửi nhắc nợ cho ${result.debtorCount} người.` };
+  if (result.status === "skipped") return { status: "success", message: result.message };
+  console.error("Không thể gửi nhắc nợ:", result.error);
+  return { status: "error", message: "Không thể gửi nhắc nợ. Vui lòng kiểm tra Messenger API." };
+}
+
+export async function saveDebtReminderSchedule(
+  _previousState: SaveDebtReminderScheduleResult,
+  formData: FormData,
+): Promise<SaveDebtReminderScheduleResult> {
+  void _previousState;
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+
+  const enabled = formData.get("enabled") === "on";
+  const days = [...new Set(formData.getAll("days").map(Number))].sort((left, right) => left - right);
+  const times = [...new Set(formData.getAll("times").map((value) => String(value).trim()))].sort();
+  if (days.some((day) => !Number.isInteger(day) || day < 1 || day > 7)) {
+    return { status: "error", message: "Danh sách ngày gửi không hợp lệ." };
+  }
+  if (times.length > 6 || times.some((time) => !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time))) {
+    return { status: "error", message: "Giờ gửi không hợp lệ hoặc vượt quá 6 khung giờ mỗi ngày." };
+  }
+  if (enabled && (!days.length || !times.length)) {
+    return { status: "error", message: "Cần chọn ít nhất một ngày và một giờ trước khi bật lịch." };
+  }
+
   try {
-    const members = await getPrisma().sessionMember.findMany({
-      where: { session: { status: "PUBLISHED", deletedAt: null } },
-      select: {
-        amountDue: true,
-        amountPaid: true,
-        user: { select: { id: true, name: true } },
-      },
-    });
-    const debtCountByUser = new Map<string, { name: string; count: number }>();
-    for (const member of members) {
-      if (member.amountPaid >= member.amountDue) continue;
-      const current = debtCountByUser.get(member.user.id);
-      debtCountByUser.set(member.user.id, {
-        name: member.user.name,
-        count: (current?.count ?? 0) + 1,
+    const prisma = getPrisma();
+    if (enabled) {
+      const messengerSettings = await prisma.setting.findMany({
+        where: { type: SEND_MESSAGE_SETTING_TYPE, key: { in: Object.values(SEND_MESSAGE_SETTING_KEYS) } },
+        select: { value: true, enabled: true },
       });
-    }
-    if (!debtCountByUser.size) {
-      return { status: "success", message: "Hiện không có ai còn nợ, chưa gửi tin nhắn." };
+      if (messengerSettings.length !== Object.keys(SEND_MESSAGE_SETTING_KEYS).length
+        || messengerSettings.some((setting) => !setting.enabled || !setting.value.trim())) {
+        return { status: "error", message: "Cần bật và cấu hình đầy đủ Messenger trước khi bật lịch tự động." };
+      }
     }
 
-    const groups = new Map<number, string[]>();
-    for (const debt of debtCountByUser.values()) {
-      groups.set(debt.count, [...(groups.get(debt.count) ?? []), debt.name]);
-    }
-    const result = await sendConfiguredMessengerMessage(buildDebtReminder(groups));
-    if (result.status === "sent") {
-      return { status: "success", message: `Đã gửi nhắc nợ cho ${debtCountByUser.size} người.` };
-    }
-    if (result.status === "skipped") {
-      return {
-        status: "error",
-        message: result.reason === "disabled" ? "Cấu hình Messenger đang tắt." : "Cấu hình Messenger chưa đầy đủ.",
-      };
-    }
-    console.error("Không thể gửi nhắc nợ:", result.error);
-    return { status: "error", message: "Không thể gửi nhắc nợ. Vui lòng kiểm tra Messenger API." };
+    await prisma.debtReminderSchedule.upsert({
+      where: { id: DEBT_REMINDER_SCHEDULE_ID },
+      create: { id: DEBT_REMINDER_SCHEDULE_ID, enabled, days, times, timezone: DEBT_REMINDER_TIMEZONE },
+      update: { enabled, days, times, timezone: DEBT_REMINDER_TIMEZONE },
+    });
+    revalidatePath("/admin/settings");
+    return { status: "success", message: enabled ? "Đã lưu và bật lịch nhắc nợ tự động." : "Đã lưu lịch ở trạng thái tắt." };
   } catch (error) {
-    console.error("Không thể tạo danh sách nhắc nợ:", error);
-    return { status: "error", message: "Không thể tạo danh sách nhắc nợ." };
+    console.error("Không thể lưu lịch nhắc nợ:", error);
+    return { status: "error", message: "Không thể lưu lịch nhắc nợ. Vui lòng thử lại." };
   }
 }
 
@@ -415,9 +427,15 @@ export async function saveSendMessageSettings(
       create: { type: SEND_MESSAGE_SETTING_TYPE, key: entry.key, value: entry.value, enabled },
       update: { value: entry.value, enabled },
     })));
+    if (!enabled) {
+      await prisma.debtReminderSchedule.updateMany({
+        where: { enabled: true },
+        data: { enabled: false },
+      });
+    }
 
     revalidatePath("/admin/settings");
-    return { status: "success", message: enabled ? "Đã lưu và bật cấu hình Messenger." : "Đã lưu cấu hình Messenger ở trạng thái tắt." };
+    return { status: "success", message: enabled ? "Đã lưu và bật cấu hình Messenger." : "Đã tắt Messenger và lịch nhắc nợ tự động." };
   } catch (error) {
     console.error("Không thể lưu cấu hình Messenger:", error);
     return { status: "error", message: "Không thể lưu cấu hình. Vui lòng thử lại." };
@@ -430,7 +448,8 @@ export async function resetApplicationData(confirmation: string): Promise<ResetD
 
   try {
     const prisma = getPrisma();
-    const [webhookLogs, payments, sessions, opponents, users] = await prisma.$transaction([
+    const [reminderRuns, webhookLogs, payments, sessions, opponents, users] = await prisma.$transaction([
+      prisma.debtReminderRun.deleteMany(),
       prisma.webhookLog.deleteMany(),
       prisma.paymentRequest.deleteMany(),
       prisma.footballSession.deleteMany(),
@@ -450,7 +469,7 @@ export async function resetApplicationData(confirmation: string): Promise<ResetD
 
     return {
       status: "success",
-      message: `Đã xóa ${users.count} người dùng, ${opponents.count} đối thủ, ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log.`,
+      message: `Đã xóa ${users.count} người dùng, ${opponents.count} đối thủ, ${sessions.count} khoản thu, ${payments.count} giao dịch, ${webhookLogs.count} webhook log và ${reminderRuns.count} lần chạy nhắc nợ.`,
     };
   } catch (error) {
     console.error("Không thể reset dữ liệu:", error);
@@ -464,7 +483,8 @@ export async function resetActivityData(confirmation: string): Promise<ResetData
 
   try {
     const prisma = getPrisma();
-    const [webhookLogs, payments, sessions] = await prisma.$transaction([
+    const [reminderRuns, webhookLogs, payments, sessions] = await prisma.$transaction([
+      prisma.debtReminderRun.deleteMany(),
       prisma.webhookLog.deleteMany(),
       prisma.paymentRequest.deleteMany(),
       prisma.footballSession.deleteMany(),
@@ -480,7 +500,7 @@ export async function resetActivityData(confirmation: string): Promise<ResetData
 
     return {
       status: "success",
-      message: `Đã xóa ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log. User, đối thủ và setting được giữ nguyên.`,
+      message: `Đã xóa ${sessions.count} khoản thu, ${payments.count} giao dịch, ${webhookLogs.count} webhook log và ${reminderRuns.count} lần chạy nhắc nợ. User, đối thủ và cấu hình lịch được giữ nguyên.`,
     };
   } catch (error) {
     console.error("Không thể reset dữ liệu thu chi:", error);

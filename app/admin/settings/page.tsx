@@ -4,23 +4,48 @@ import { MessengerActions } from "@/app/admin/settings/messenger-actions";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
 import { AndroidStatusCheck } from "@/app/admin/settings/android-status-check";
+import { DebtReminderScheduleForm } from "@/app/admin/settings/debt-reminder-schedule-form";
 import { AdminShell } from "@/app/components/admin-shell";
+import {
+  DEFAULT_DEBT_REMINDER_DAYS,
+  DEFAULT_DEBT_REMINDER_TIMES,
+  DEBT_REMINDER_SCHEDULE_ID,
+  DEBT_REMINDER_TIMEZONE,
+  getNextDebtReminderAt,
+} from "@/lib/debt-reminder";
 import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
 import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const settings = await getPrisma().setting.findMany({
-    where: { type: SEND_MESSAGE_SETTING_TYPE },
-    select: { key: true, value: true, enabled: true },
-  });
+  const prisma = getPrisma();
+  const [settings, reminderSchedule, reminderRuns] = await Promise.all([
+    prisma.setting.findMany({
+      where: { type: SEND_MESSAGE_SETTING_TYPE },
+      select: { key: true, value: true, enabled: true },
+    }),
+    prisma.debtReminderSchedule.findUnique({ where: { id: DEBT_REMINDER_SCHEDULE_ID } }),
+    prisma.debtReminderRun.findMany({
+      where: { scheduleId: DEBT_REMINDER_SCHEDULE_ID },
+      orderBy: { scheduledFor: "desc" },
+      take: 5,
+      select: { id: true, scheduledFor: true, status: true, debtorCount: true, error: true },
+    }),
+  ]);
   const settingsByKey = new Map(settings.map((setting) => [setting.key, setting]));
   const apiUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiUrl)?.value ?? "";
   const apiKey = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiKey)?.value ?? "";
   const chatUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.chatUrl)?.value ?? "";
   const enabled = settings.length > 0 && settings.every((setting) => setting.enabled);
   const messengerConfigured = enabled && Boolean(apiUrl && apiKey && chatUrl);
+  const schedule = {
+    enabled: reminderSchedule?.enabled ?? false,
+    days: reminderSchedule?.days ?? DEFAULT_DEBT_REMINDER_DAYS,
+    times: reminderSchedule?.times ?? DEFAULT_DEBT_REMINDER_TIMES,
+    timezone: reminderSchedule?.timezone ?? DEBT_REMINDER_TIMEZONE,
+  };
+  const nextRunAt = getNextDebtReminderAt(schedule)?.toISOString() ?? null;
 
   return (
     <AdminShell active="settings">
@@ -33,6 +58,15 @@ export default async function SettingsPage() {
           <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
           <MessengerActions configured={messengerConfigured} />
         </section>
+
+        <DebtReminderScheduleForm
+          configured={messengerConfigured}
+          enabled={schedule.enabled}
+          days={schedule.days}
+          times={schedule.times}
+          nextRunAt={nextRunAt}
+          recentRuns={reminderRuns.map((run) => ({ ...run, scheduledFor: run.scheduledFor.toISOString() }))}
+        />
 
         <section className="panel settings-device-status-panel">
           <div>

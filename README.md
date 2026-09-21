@@ -13,13 +13,14 @@ Hệ thống có hai khu vực:
 
 Luồng chính:
 
-1. Khi admin bấm tạo khoản thu, UI yêu cầu chọn `Trận đấu` hoặc `Khoản thu khác` trước rồi mới mở form chi tiết. Mọi nghiệp vụ sau đó nằm trong `FootballSession`: `kind = MATCH` là khoản thu của một trận; `kind = GENERAL` là áo, quỹ hoặc nội dung khác.
+1. Khi admin bấm tạo khoản thu, UI yêu cầu chọn `Trận đấu` hoặc `Khoản thu khác` trước rồi mới mở form chi tiết. Loại chỉ được chọn lúc tạo và không thể đổi khi chỉnh sửa. Mọi nghiệp vụ sau đó nằm trong `FootballSession`: `kind = MATCH` là khoản thu của một trận; `kind = GENERAL` là áo, quỹ hoặc nội dung khác.
 2. Với khoản `MATCH`, mỗi `SessionMember` được tính một lần tham gia và có thể lưu bàn thắng, kiến tạo, miễn đóng. Người miễn đóng vẫn tham gia nhưng nghĩa vụ tài chính bằng 0.
 3. Thành viên của khoản `GENERAL` chỉ là người cần đóng tiền và không làm tăng thống kê số trận.
 4. Với `MATCH`, tiền được chia theo tổng số suất (`slots`) và làm tròn lên 1.000 VND. Với `GENERAL`, mỗi người luôn có một phần tính tiền và UI không hiển thị điều khiển slot. Admin vẫn có thể sửa số tiền từng người.
 5. Khoản thu `DRAFT` chưa hiển thị cho client. Khi `PUBLISHED`, thành viên có thể chọn nhiều khoản và thanh toán chung một QR.
 6. Server snapshot các khoản vào `PaymentRequest` có code `PAYXXXXXXXX`; webhook đối chiếu số tiền và cộng dồn lịch sử đã trả.
 7. Tăng nghĩa vụ sau khi đã đóng chỉ tạo phần chênh còn thiếu; giảm thấp hơn số đã đóng được coi là hoàn tất và không tạo số dư âm.
+8. Nhắc nợ có thể gửi thủ công hoặc chạy tự động theo nhiều ngày/nhiều giờ, cố định múi giờ `Asia/Ho_Chi_Minh` (GMT+7). Mỗi mốc lịch chỉ được xử lý một lần.
 
 ## Công nghệ
 
@@ -49,6 +50,7 @@ app/
     avatars/                 Đọc avatar từ local storage
     payments/                Trạng thái giao dịch và tải QR
     webhooks/payments/       Nhận webhook thanh toán
+    jobs/debt-reminders/     Trigger lịch nhắc nợ từ cron bên ngoài
   client/                    Giao diện công khai cho thành viên
   collections/               Implementation UI/action của khoản thu
   transactions/              Implementation UI/action của giao dịch
@@ -59,6 +61,8 @@ lib/
   admin-session.ts           Kiểm tra session trong server code
   avatar-storage.ts          Validate và lưu avatar trên filesystem
   messenger-message.ts       Gọi Messenger service đã cấu hình
+  debt-reminder.ts           Tạo nội dung, tính lịch và claim lần chạy nhắc nợ
+  debt-reminder-scheduler.ts Bộ kiểm tra lịch chạy nền trong Node.js server
   money.ts                   Parse, format và chia tiền
   payment-totals.ts          Tính số đã trả/còn thiếu
   prisma.ts                  Prisma singleton dùng adapter PostgreSQL
@@ -68,6 +72,7 @@ prisma/
 scripts/                     Script test webhook
 storage/avatars/             Avatar runtime; không commit vào Git
 proxy.ts                     Auth gate và redirect cấp request
+instrumentation.ts           Khởi động scheduler khi Next.js Node server chạy
 ```
 
 Các page dưới `app/admin/collections` và `app/admin/transactions` hiện re-export implementation từ `app/collections` và `app/transactions`. URL canonical vẫn là `/admin/...`; các URL cũ `/collections/...` và `/transactions/...` được `proxy.ts` redirect sang `/admin/...`.
@@ -89,6 +94,7 @@ Các page dưới `app/admin/collections` và `app/admin/transactions` hiện re
 | `GET /api/payments/[code]/status` | Công khai | Poll trạng thái thanh toán |
 | `GET /api/payments/[code]/qr` | Công khai | Proxy/tải ảnh QR từ VietQR |
 | `POST /api/webhooks/payments` | Secret tùy cấu hình | Nhận giao dịch ngân hàng |
+| `POST /api/jobs/debt-reminders` | `JOB_SECRET` | Yêu cầu kiểm tra và chạy các mốc nhắc nợ đến hạn |
 
 Mọi route khác đi qua `proxy.ts`. API không public trả `401` nếu thiếu session; page admin redirect về `/login?next=...`.
 
@@ -107,6 +113,8 @@ Các model chính trong `prisma/schema.prisma`:
 - `ManualPaymentOption`: tùy chọn đã được admin ghi nhận thanh toán thủ công.
 - `WebhookLog`: payload và kết quả của mọi webhook đã nhận.
 - `Setting`: cấu hình dạng `type + key`, hiện dùng cho Messenger.
+- `DebtReminderSchedule`: lịch nhắc nợ toàn hệ thống, gồm trạng thái bật/tắt, các ngày, nhiều giờ gửi và múi giờ.
+- `DebtReminderRun`: lịch sử/claim của từng mốc chạy; unique `(scheduleId, scheduledFor)` ngăn nhiều tiến trình gửi trùng.
 
 ### Trạng thái khoản thu
 
@@ -139,6 +147,8 @@ Không phá vỡ những nguyên tắc sau khi sửa logic thanh toán:
 10. Server Action có quyền admin phải tự gọi `isAdminAuthenticated()`; không chỉ dựa vào Proxy.
 11. Chỉ `SessionMember` thuộc `FootballSession.kind = MATCH` được tính vào thống kê tham gia, bàn thắng và kiến tạo.
 12. Option đã trả không được bù vào khoản chính còn thiếu. Số dư khoản chính là `max(amountDue - amountPaid, 0)`.
+13. Job nhắc nợ phải tạo được `DebtReminderRun` cho mốc `scheduledFor` trước khi gửi. Unique constraint là cơ chế claim idempotent giữa nhiều replica.
+14. `FootballSession.kind` là bất biến sau khi tạo; cả UI và Server Action đều phải chặn chuyển đổi giữa `MATCH` và `GENERAL`.
 
 ## Tính tiền
 
@@ -187,6 +197,27 @@ Smoke test theo cấu hình mặc định của script:
 pnpm test:webhook:smoke
 ```
 
+## Nhắc nợ tự động
+
+Admin cấu hình tại **Cài đặt → Nhắc nợ tự động**:
+
+- chọn một hoặc nhiều ngày trong tuần;
+- thêm tối đa 6 giờ gửi trong ngày;
+- múi giờ cố định `Asia/Ho_Chi_Minh` (GMT+7);
+- xem lần chạy tiếp theo và 5 lần chạy gần nhất;
+- job không gửi message nếu không có ai còn nợ.
+
+Nội dung phân biệt số trận đấu và số khoản thu khác, ví dụ: `An còn nợ 2 trận đấu và 1 khoản thu khác.`
+
+Trong Docker/Node server lâu dài, `instrumentation.ts` khởi động bộ kiểm tra lịch mỗi 30 giây. Khi dùng serverless hoặc muốn scheduler bên ngoài, đặt `DEBT_REMINDER_INTERNAL_SCHEDULER=false` và gọi endpoint sau mỗi phút:
+
+```http
+POST /api/jobs/debt-reminders
+Authorization: Bearer <JOB_SECRET>
+```
+
+Endpoint chỉ chạy các mốc đến hạn trong cửa sổ 5 phút gần nhất. Nhiều lời gọi hoặc nhiều replica không gửi trùng vì mỗi mốc có unique claim trong `DebtReminderRun`. Nếu tiến trình dừng sau khi claim nhưng trước khi hoàn tất, hệ thống ưu tiên không gửi lại để tránh spam.
+
 ## Auth và bảo mật
 
 Admin session là cookie HttpOnly, SameSite Lax, thời hạn 7 ngày và được ký HMAC. `proxy.ts` chỉ thực hiện optimistic check; các Server Action quan trọng kiểm tra session lại ở server.
@@ -210,6 +241,8 @@ DATABASE_URL="postgresql://USERNAME:PASSWORD@DATABASE_HOST:DATABASE_PORT/postgre
 DATABASE_SCHEMA="money_check"
 APP_URL="https://example.com"
 WEBHOOK_SECRET="change-me-in-production"
+JOB_SECRET="change-me-for-external-job-trigger"
+DEBT_REMINDER_INTERNAL_SCHEDULER="true"
 AVATAR_STORAGE_DIR="storage/avatars"
 STATUS_SERVICE_URL="http://app-status-socket:3002"
 STATUS_DEVICE_ID="android-main"
@@ -222,6 +255,8 @@ STATUS_ADMIN_TOKEN="replace-with-a-random-admin-token"
 | `DATABASE_SCHEMA` | Không | Schema truyền cho Prisma adapter, mặc định `public` |
 | `APP_URL` | Khuyến nghị | Public origin dùng khi Proxy tạo redirect sau reverse proxy |
 | `WEBHOOK_SECRET` | Có ở production | Xác thực payment webhook; để trống đồng nghĩa webhook mở |
+| `JOB_SECRET` | Khi dùng cron ngoài | Xác thực endpoint `/api/jobs/debt-reminders`; endpoint từ chối chạy nếu để trống |
+| `DEBT_REMINDER_INTERNAL_SCHEDULER` | Không | Mặc định bật; đặt `false` khi dùng cron ngoài hoặc môi trường không giữ tiến trình lâu dài |
 | `AVATAR_STORAGE_DIR` | Không | Thư mục avatar, mặc định `storage/avatars` |
 | `STATUS_SERVICE_URL` | Cho status check | URL của Android status service |
 | `STATUS_DEVICE_ID` | Không | Device cần kiểm tra, mặc định `android-main` |
@@ -269,6 +304,8 @@ Migration `20260921020000_unify_matches_into_collections` nhập dữ liệu th�
 - đối thủ, tỷ số, miễn đóng, bàn thắng và kiến tạo được chuyển nguyên vẹn sang `FootballSession`/`SessionMember`;
 - các bảng trung gian `Match` và `MatchParticipant` được xóa sau khi chuyển dữ liệu;
 - toàn bộ ID khoản thu, `PaymentRequest`, webhook và số đã trả được giữ nguyên nên không mất lịch sử tài chính.
+
+Migration `20260921030000_debt_reminder_scheduler` thêm lịch nhắc nợ và lịch sử chạy. Migration không tự tạo lịch bật sẵn; UI dùng mặc định thứ 2, 4, 6 lúc 20:00 nhưng chỉ hoạt động sau khi admin lưu và bật.
 
 ## Docker và deploy
 

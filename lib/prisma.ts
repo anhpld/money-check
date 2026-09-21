@@ -16,8 +16,9 @@ export function getPrisma() {
   // older generated client that was cached before the Setting model existed.
   const cachedPrisma = globalForPrisma.prisma;
   const cachedHasCurrentModels = cachedPrisma
-    ? Boolean((cachedPrisma as unknown as { setting?: unknown; opponent?: unknown }).setting)
+    ? Boolean((cachedPrisma as unknown as { setting?: unknown; opponent?: unknown; debtReminderSchedule?: unknown }).setting)
       && Boolean((cachedPrisma as unknown as { opponent?: unknown }).opponent)
+      && Boolean((cachedPrisma as unknown as { debtReminderSchedule?: unknown }).debtReminderSchedule)
     : false;
   if (cachedPrisma && !cachedHasCurrentModels) {
     void cachedPrisma.$disconnect();
