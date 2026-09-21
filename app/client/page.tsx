@@ -46,10 +46,11 @@ export default async function ClientPage() {
   return (
     <ClientShell>
       <main className="client-main">
-        <section className="client-hero">
-          <p className="client-kicker">QUỸ BÓNG ĐÁ</p>
-          <h1>FC ĐÔNG ĐÔ</h1>
+        <section className="hero client-hero overflow-hidden bg-primary text-primary-content shadow-xl">
+          <div className="hero-content flex-col py-9 text-center sm:py-11">
 
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">FC ĐÔNG ĐÔ</h1>
+          </div>
         </section>
 
         <ClientUserList users={userSummaries} />

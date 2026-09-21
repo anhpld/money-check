@@ -23,11 +23,11 @@ export function ClientShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="client-shell" onClickCapture={handleNavigation} aria-busy={isNavigating}>
+    <div className="client-shell min-h-screen bg-base-200 text-base-content" data-theme="light" onClickCapture={handleNavigation} aria-busy={isNavigating}>
       {children}
       {isNavigating ? (
         <div className="client-navigation-loading" role="status" aria-live="polite">
-          <span aria-hidden="true" />
+          <span className="loading loading-spinner loading-lg text-primary" aria-hidden="true" />
           <p>Đang tải dữ liệu...</p>
         </div>
       ) : null}

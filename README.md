@@ -29,7 +29,7 @@ Luồng chính:
 - TypeScript 5
 - PostgreSQL
 - Prisma `7.9` với `@prisma/adapter-pg`
-- Tailwind CSS 4 và CSS ứng dụng tại `app/globals.css`
+- Tailwind CSS 4, daisyUI 5 và CSS ứng dụng tại `app/globals.css`
 - pnpm `10.23`
 - Node.js 24 trong Docker
 

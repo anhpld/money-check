@@ -55,6 +55,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const [payment, setPayment] = useState<Extract<PaymentRequestResult, { status: "success" }>["request"] | null>(null);
   const [optionSelections, setOptionSelections] = useState<Record<string, Record<string, OptionSelection>>>(() => createDefaultOptionSelections(debts));
+  const hasChargeOptions = debts.some((debt) => debt.chargeOptions.length > 0);
 
   const reviewTotal = useMemo(() => debts.reduce((sum, debt) => {
     const optionsTotal = debt.chargeOptions.reduce((optionSum, option) => {
@@ -194,12 +195,13 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
 
   return (
     <>
-      <section className="client-debt-section payment-enabled">
+      <section className="card card-border client-debt-section payment-enabled bg-base-100 shadow-lg">
         <header className="client-debt-overview has-debt">
           <div>
             <h2>Khoản cần thanh toán</h2>
-            <p>{debts.length} khoản chưa thanh toán · Chọn thêm tùy chọn nếu có</p>
+            <p>{debts.length} khoản chưa thanh toán{hasChargeOptions ? " · Chọn thêm chi phí tùy chọn nếu cần" : ""}</p>
           </div>
+          <span className="badge badge-error badge-soft">Chưa thanh toán</span>
         </header>
         <div className="client-debt-column-head" aria-hidden="true">
           <span>Khoản thu</span>
@@ -209,8 +211,8 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
         <div className="client-debt-list">
           {debts.map((debt) => {
             return (
-              <article className="client-debt-card" key={debt.sessionMemberId}>
-                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+              <article className="card card-border client-debt-card" key={debt.sessionMemberId}>
+                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>TH{new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
                 <div className="debt-info">
                   <h2>{debt.title}</h2>
                   {debt.sessionNote ? <p>{debt.sessionNote}</p> : null}
@@ -218,48 +220,49 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 </div>
                 <div className="debt-slots"><strong>{debt.slots}</strong></div>
                 <strong className="debt-amount">{formatVnd(debt.footballAmount)}</strong>
-                <div className="debt-extra-options">
-                  <span className="debt-options-label">Tùy chọn</span>
-                  <div className="debt-option-list">
-                    {debt.chargeOptions.map((option) => {
-                      const selection = optionSelections[debt.sessionMemberId]?.[option.id];
-                      return (
-                        <div className="debt-option-control" key={option.id}>
-                          <label className="option-checkbox"><input type="checkbox" checked={selection?.included ?? false} onChange={() => toggleOption(debt, option)} /><i>{selection?.included ? "✓" : ""}</i><span>{option.name}</span></label>
-                          {selection?.included && option.allowCustomAmount ? (
-                            <div className="option-money-input"><input aria-label={`${option.name} ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setOptionSelections((current) => ({ ...current, [debt.sessionMemberId]: { ...current[debt.sessionMemberId], [option.id]: { included: true, amount: parseMoneyInput(event.target.value) } } }))} placeholder="0" /><span>đ</span></div>
-                          ) : <span className="option-cost">{formatVnd(selection?.included ? option.defaultAmount : 0)}</span>}
-                        </div>
-                      );
-                    })}
-                    {!debt.chargeOptions.length ? <span className="option-empty">Không có chi phí tùy chọn</span> : null}
+                {debt.chargeOptions.length ? (
+                  <div className="debt-extra-options">
+                    <span className="debt-options-label">Chi phí tùy chọn</span>
+                    <div className="debt-option-list">
+                      {debt.chargeOptions.map((option) => {
+                        const selection = optionSelections[debt.sessionMemberId]?.[option.id];
+                        return (
+                          <div className="debt-option-control" key={option.id}>
+                            <label className="option-checkbox"><input className="checkbox checkbox-primary checkbox-sm" type="checkbox" checked={selection?.included ?? false} onChange={() => toggleOption(debt, option)} /><span>{option.name}</span></label>
+                            {selection?.included && option.allowCustomAmount ? (
+                              <label className="input input-sm option-money-input"><input aria-label={`${option.name} ${debt.title}`} type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setOptionSelections((current) => ({ ...current, [debt.sessionMemberId]: { ...current[debt.sessionMemberId], [option.id]: { included: true, amount: parseMoneyInput(event.target.value) } } }))} placeholder="0" /><span>đ</span></label>
+                            ) : <span className="option-cost">{formatVnd(selection?.included ? option.defaultAmount : 0)}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </article>
             );
           })}
         </div>
-        {error ? <div className="client-error client-payment-error" role="alert">! {error}</div> : null}
+        {error ? <div className="alert alert-error alert-soft client-error client-payment-error" role="alert"><span>!</span><span>{error}</span></div> : null}
         <div className="client-debt-checkout">
           <footer className="client-debt-total has-debt">
             <span>Tổng thanh toán</span>
             <strong>{formatVnd(reviewTotal)}</strong>
           </footer>
           <div className="client-debt-action">
-            <button className="generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
-              {isPending ? <span className="spinner" /> : null}{isPending ? "Đang tạo mã..." : "Thanh toán"}
+            <button className="btn btn-primary btn-lg btn-block generate-qr-button" type="button" disabled={isPending} onClick={createPayment}>
+              {isPending ? <span className="loading loading-spinner loading-sm" /> : null}{isPending ? "Đang tạo mã..." : "Thanh toán"}
             </button>
           </div>
         </div>
       </section>
 
       {open ? (
-        <div className="client-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-          <section className="client-payment-dialog qr-step" role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title" aria-busy={isPending}>
-            <button className="client-dialog-close" type="button" aria-label="Đóng" onClick={closeDialog}>×</button>
+        <div className="modal modal-open client-dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="payment-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
+          <section className="modal-box client-payment-dialog qr-step" aria-busy={isPending}>
+            <button className="btn btn-circle btn-ghost btn-sm client-dialog-close" type="button" aria-label="Đóng" onClick={closeDialog}>×</button>
             {isPending ? (
               <div className="client-api-loading" role="status" aria-live="polite">
-                <span aria-hidden="true" />
+                <span className="loading loading-spinner loading-lg text-primary" aria-hidden="true" />
                 <p>Đang tạo mã thanh toán...</p>
               </div>
             ) : null}
@@ -287,7 +290,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                       : `Yêu cầu ${formatVnd(settlement.expectedAmount)}, đã nhận ${formatVnd(settlement.actualAmount ?? 0)}. Vui lòng liên hệ admin để kiểm tra.`}
                 </p>
                 {settlement.status === "PAID" ? <span className="payment-returning"><i />Đang quay lại màn chi tiết...</span> : (
-                  <button type="button" onClick={settlementIsMismatch ? retryPayment : () => { closeDialog(); router.refresh(); }}>{settlementIsMismatch ? "Tạo lại QR" : "Quay lại chi tiết"}</button>
+                  <button className="btn btn-primary" type="button" onClick={settlementIsMismatch ? retryPayment : () => { closeDialog(); router.refresh(); }}>{settlementIsMismatch ? "Tạo lại QR" : "Quay lại chi tiết"}</button>
                 )}
               </div>
             ) : payment ? (
@@ -295,25 +298,24 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
                 <p className="client-kicker" id="payment-dialog-title">SẴN SÀNG THANH TOÁN</p>
                 <div className={`qr-image-shell ${qrFailed ? "qr-failed" : ""}`}>
                   {qrFailed ? (
-                    <div className="qr-fallback" role="alert">
+                    <div className="alert alert-warning alert-soft qr-fallback" role="alert">
                       <span aria-hidden="true">!</span>
-                      <strong>Không tải được mã QR</strong>
-                      <p>Bạn có thể chuyển khoản thủ công bằng thông tin bên dưới.</p>
+                      <div><strong>Không tải được mã QR</strong><p>Bạn có thể chuyển khoản thủ công bằng thông tin bên dưới.</p></div>
                     </div>
                   ) : (
                     <Image src={qrUrl} alt={`QR thanh toán ${payment.code}`} width={420} height={560} unoptimized priority onError={() => setQrFailed(true)} />
                   )}
                 </div>
                 <a
-                  className="qr-download-button"
+                  className="btn btn-outline btn-primary btn-sm qr-download-button"
                   href={`/api/payments/${encodeURIComponent(payment.code)}/qr`}
                   download={`QR-${payment.code}.png`}
                 >
                   Lưu ảnh QR
                 </a>
                 <strong className="qr-total">{formatVnd(payment.expectedAmount)}</strong>
-                <div className="payment-account"><span>Số tài khoản</span><strong>{PAYMENT_ACCOUNT}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(PAYMENT_ACCOUNT)}>Sao chép</button></div>
-                <div className="payment-code"><span>Nội dung chuyển khoản</span><strong>{payment.code}</strong><button type="button" onClick={() => navigator.clipboard?.writeText(payment.code)}>Sao chép</button></div>
+                <div className="card card-border payment-account"><span>Số tài khoản</span><strong>{PAYMENT_ACCOUNT}</strong><button className="btn btn-ghost btn-xs" type="button" onClick={() => navigator.clipboard?.writeText(PAYMENT_ACCOUNT)}>Sao chép</button></div>
+                <div className="card card-border payment-code"><span>Nội dung chuyển khoản</span><strong>{payment.code}</strong><button className="btn btn-ghost btn-xs" type="button" onClick={() => navigator.clipboard?.writeText(payment.code)}>Sao chép</button></div>
                 <p className="payment-waiting"><i />{pollingTimedOut ? "Chưa nhận được kết quả. Bạn có thể đóng và kiểm tra lại sau." : "Đang chờ xác nhận thanh toán..."}</p>
                 <p className="qr-note">Vui lòng giữ nguyên số tiền và nội dung để hệ thống tự đối soát.</p>
               </div>

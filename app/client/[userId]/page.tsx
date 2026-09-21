@@ -4,7 +4,6 @@ import { ClientShell } from "@/app/client/client-shell";
 import { PaymentDialog, type ClientDebtItem } from "@/app/client/payment-dialog";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { getPrisma } from "@/lib/prisma";
-import { formatVnd } from "@/lib/money";
 import { getOutstandingAmount } from "@/lib/payment-totals";
 
 export const dynamic = "force-dynamic";
@@ -62,52 +61,34 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
       };
     })
     .filter((member) => member.totalOutstanding > 0);
-  const outstanding = debts.reduce((sum, debt) => sum + debt.totalOutstanding, 0);
 
   return (
     <ClientShell>
       <main className="client-main client-detail-main">
         <div className="client-detail-header">
-          <Link className="client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg><span>Danh sách thành viên</span></Link>
+          <Link className="btn btn-ghost btn-sm client-back" href="/client"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg><span>Danh sách thành viên</span></Link>
 
-          <section className="client-person-heading">
-            <div className="client-person-identity">
+          <section className="card card-border client-person-heading bg-base-100 shadow-sm">
+            <div className="card-body client-person-identity flex-row items-center p-4">
               <UserAvatar name={user.name} avatarKey={user.avatarKey} className="client-person-avatar" />
-              <h1>{user.name}</h1>
+              <div>
+                <span className="text-xs text-base-content/55">Khoản thu của</span>
+                <h1 className="card-title">{user.name}</h1>
+              </div>
             </div>
           </section>
         </div>
 
         {debts.length ? <PaymentDialog userId={user.id} debts={debts} /> : (
-          <section className={`client-debt-section ${debts.length ? "has-debt" : "is-clear"}`}>
-          <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
-            <div>
-              <h2>Khoản cần thanh toán</h2>
-              <p>{debts.length ? `${debts.length} khoản chưa thanh toán` : "Không còn khoản nợ nào"}</p>
+          <section className="card card-border client-debt-section is-clear bg-base-100 shadow-sm">
+            <div className="card-body items-center py-14 text-center">
+              <span className="grid size-16 place-items-center rounded-full bg-success/10 text-2xl font-black text-success" aria-hidden="true">✓</span>
+              <div>
+                <h2 className="card-title justify-center">Đã thanh toán hết</h2>
+                <p className="mt-2 text-sm text-base-content/60">Bạn không còn khoản nào cần trả.</p>
+              </div>
+              <Link className="btn btn-soft btn-sm mt-2" href="/client">Về danh sách thành viên</Link>
             </div>
-          </header>
-          {debts.length ? (
-            <div className="client-debt-column-head" aria-hidden="true">
-              <span>Khoản thu</span>
-              <span>SL</span>
-              <span>Số tiền</span>
-            </div>
-          ) : null}
-          <div className="client-debt-list">
-            {debts.map((debt) => (
-              <article className="client-debt-card" key={debt.sessionMemberId}>
-                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>THÁNG {new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
-                <div className="debt-info"><h2>{debt.title}</h2>{debt.sessionNote ? <p>{debt.sessionNote}</p> : null}{debt.note ? <span className="member-note">Ghi chú cho bạn: {debt.note}</span> : null}</div>
-                <div className="debt-slots"><strong>{debt.slots}</strong></div>
-                <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
-              </article>
-            ))}
-            {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Bạn không còn khoản nào cần trả.</p></div> : null}
-          </div>
-          <footer className={`client-debt-total ${debts.length ? "has-debt" : "clear"}`}>
-            <span>{debts.length ? "Tổng" : "Trạng thái"}</span>
-            <strong>{debts.length ? formatVnd(outstanding) : "Hết nợ"}</strong>
-          </footer>
           </section>
         )}
       </main>

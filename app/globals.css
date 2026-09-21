@@ -1,4 +1,18 @@
 @import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default;
+}
+@plugin "daisyui/theme" {
+  name: "light";
+  default: true;
+  --color-primary: #12624c;
+  --color-primary-content: #ffffff;
+  --color-success: #2f7d61;
+  --color-error: #c53d3d;
+  --radius-selector: 0.75rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+}
 
 :root {
   --ink: #17201d;
@@ -701,17 +715,16 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .preview-members td strong { font-size: 14px; }
 
 /* Client */
-.client-shell { min-height: 100vh; background: #f6f8f6; }
-.client-navigation-loading { position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: #f6f8f6d9; color: var(--brand); backdrop-filter: blur(3px); }
-.client-navigation-loading > span, .client-route-loading > span, .client-api-loading > span { width: 28px; height: 28px; border: 3px solid #cfe0da; border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
+.client-shell { min-height: 100vh; background: radial-gradient(circle at 50% 0, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 360px), var(--color-base-200); }
+.client-navigation-loading { position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: color-mix(in oklab, var(--color-base-200) 88%, transparent); color: var(--color-primary); backdrop-filter: blur(6px); }
 .client-navigation-loading p, .client-route-loading p, .client-api-loading p { margin: 0; font-size: 11px; font-weight: 700; }
-.client-route-loading { display: flex; min-height: 100vh; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: #f6f8f6; color: var(--brand); }
-.client-main { width: min(100% - 32px, 760px); margin: 0 auto; padding: 55px 0 76px; }
-.client-hero { margin-bottom: 30px; text-align: center; }
+.client-route-loading { display: flex; min-height: 100vh; align-items: center; justify-content: center; flex-direction: column; gap: 10px; }
+.client-main { width: min(100% - 32px, 800px); margin: 0 auto; padding: 40px 0 76px; }
+.client-hero { position: relative; margin-bottom: 20px; border-radius: 24px; text-align: center; }
+.client-hero::after { position: absolute; right: -55px; bottom: -95px; width: 220px; height: 220px; border: 42px solid color-mix(in oklab, var(--color-primary-content) 8%, transparent); border-radius: 50%; content: ""; pointer-events: none; }
 .client-kicker { margin: 0 0 9px; color: var(--brand); font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
 .client-hero h1, .client-person-heading h1 { margin: 0; font-family: var(--font-geist-sans), sans-serif; letter-spacing: -1.1px; }
-.client-hero h1 { font-size: clamp(23px, 3.5vw, 30px); }
-.client-hero > p:last-child { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.client-hero .hero-content { position: relative; z-index: 1; }
 .client-user-search { position: relative; display: flex; height: 46px; align-items: center; margin-bottom: 13px; border: 1px solid #dce3df; border-radius: 12px; background: #fff; box-shadow: 0 3px 13px #23382f07; transition: .18s ease; }
 .client-user-search:focus-within { border-color: #9fc2b5; box-shadow: 0 0 0 3px #12624c0d; }
 .client-user-search > svg { width: 18px; margin-left: 14px; fill: none; stroke: #7d8884; stroke-linecap: round; stroke-width: 1.8; }
@@ -720,9 +733,9 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .client-user-search input::-webkit-search-cancel-button { display: none; }
 .client-user-search button { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; margin-right: 8px; border: 0; border-radius: 8px; background: #f1f4f2; color: #7a8581; cursor: pointer; font-size: 17px; line-height: 1; }
 .client-user-search button:hover { background: #e8eeeb; color: var(--brand); }
-.client-user-list { display: grid; gap: 10px; }
-.client-user-card { display: flex; min-height: 90px; align-items: center; gap: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 16px; box-shadow: 0 3px 13px #23382f08; transition: .18s ease; }
-.client-user-card:hover { border-color: #bfd3cc; box-shadow: 0 8px 25px #173c2f10; transform: translateY(-1px); }
+.client-user-list { display: grid; gap: 4px; }
+.client-user-card { display: flex; width: 100%; min-height: 82px; align-items: center; gap: 14px; border: 1px solid transparent; border-radius: var(--radius-box); background: transparent; padding: 13px 14px; transition: .18s ease; }
+.client-user-card:hover { border-color: var(--color-base-300); background: var(--color-base-200); transform: translateX(2px); }
 .client-user-avatar { display: grid; overflow: hidden; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border-radius: 13px; font-size: 14px; font-weight: 800; }
 .client-user-name { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 5px; }
 .client-user-title { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 7px; }
@@ -730,27 +743,26 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .client-recent-payment { border-radius: 999px; background: #e6f2ed; color: var(--brand); padding: 4px 7px; font-size: 11px; font-weight: 750; line-height: 1; white-space: nowrap; }
 .client-user-name small { color: var(--muted); font-size: 10px; }
 .client-user-debt { display: flex; align-items: center; gap: 8px; }
-.client-user-debt strong { font-family: var(--font-geist-mono), monospace; font-size: 14px; }
-.client-user-debt.has-debt { color: #c73535; }
-.client-user-debt.has-debt strong { font-size: 17px; font-weight: 800; }
-.client-user-debt.clear { color: var(--brand); }
+.client-user-debt .badge { height: 30px; font-family: var(--font-geist-mono), monospace; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.client-user-debt.has-debt { color: var(--color-error); }
+.client-user-debt.clear { color: var(--color-success); }
 .client-user-debt svg { width: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .client-empty { border: 1px dashed #ccd7d3; border-radius: 15px; background: #fff9; padding: 52px 24px; text-align: center; }
 .client-empty h2 { margin: 0 0 7px; font-size: 15px; }
 .client-empty p { margin: 0; color: var(--muted); font-size: 11px; }
 .client-search-empty { padding: 38px 24px; }
 
-.client-detail-main { width: min(100% - 32px, 820px); }
+.client-detail-main { width: min(100% - 32px, 840px); }
 .client-detail-header { display: contents; }
 .client-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 31px; color: var(--muted); font-size: 13px; font-weight: 650; }
 .client-back:hover { color: var(--brand); }
 .client-back svg { width: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
-.client-person-heading { margin-bottom: 20px; }
+.client-person-heading { margin-bottom: 16px; }
 .client-person-identity { display: flex; align-items: center; gap: 13px; }
 .client-person-identity > span { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; border-radius: 14px; background: var(--brand); color: #fff; font-size: 17px; font-weight: 800; }
 .client-person-avatar { overflow: hidden; }
 .client-person-heading h1 { font-size: 20px; letter-spacing: -.45px; }
-.client-debt-section { overflow: hidden; border: 1px solid #dce5e1; border-radius: 17px; background: #fff; box-shadow: 0 10px 30px #173c2f0d; }
+.client-debt-section { overflow: hidden; border: 1px solid var(--color-base-300); border-radius: var(--radius-box); background: var(--color-base-100); }
 .client-debt-overview { display: flex; min-height: 86px; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid #dce5e1; background: linear-gradient(135deg, #edf6f2, #f7faf8); padding: 17px 20px; }
 .client-debt-overview h2 { margin: 0; font-size: 20px; letter-spacing: -.45px; }
 .client-debt-overview p { margin: 6px 0 0; color: #6c7974; font-size: 12px; }
@@ -767,10 +779,10 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .client-debt-column-head span:first-child { grid-column: 1 / 3; }
 .client-debt-column-head span:nth-child(2) { text-align: center; }
 .client-debt-column-head span:last-child { text-align: right; }
-.client-debt-list { display: grid; }
-.client-debt-card { display: grid; min-height: 104px; grid-template-columns: 52px minmax(0, 1fr) 72px 126px; align-items: center; gap: 16px; border-bottom: 1px solid #e8edea; background: #fff; padding: 16px 20px; transition: background .16s ease; }
-.client-debt-card:last-child { border-bottom: 0; }
-.client-debt-card:hover { background: #fafcfb; }
+.client-debt-list { display: grid; gap: 12px; background: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-200)); padding: 16px 20px; }
+.client-debt-card { display: grid; min-height: 104px; grid-template-columns: 52px minmax(0, 1fr) 72px 126px; align-items: center; gap: 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 7%, transparent); border-radius: 18px; background: var(--color-base-100); padding: 16px 20px; box-shadow: 0 1px 2px color-mix(in oklab, var(--color-base-content) 4%, transparent), 0 8px 20px -12px color-mix(in oklab, var(--color-base-content) 18%, transparent); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.client-debt-card:last-child { border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 7%, transparent); }
+.client-debt-card:hover { border-color: color-mix(in oklab, var(--color-primary) 22%, var(--color-base-300)); background: var(--color-base-100); box-shadow: 0 12px 28px -18px color-mix(in oklab, var(--color-primary) 35%, transparent); transform: translateY(-1px); }
 .debt-date { display: flex; width: 52px; height: 59px; flex: 0 0 auto; align-items: center; justify-content: center; flex-direction: column; border-radius: 12px; background: var(--brand-soft); color: var(--brand); }
 .debt-date strong { font-size: 21px; line-height: 1; }
 .debt-date span { margin-top: 6px; font-size: 9px; font-weight: 750; }
@@ -803,14 +815,14 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .client-dialog-heading h2, .qr-content h2 { margin: 0 0 7px; font-family: var(--font-geist-sans), sans-serif; font-size: 23px; letter-spacing: -.6px; }
 .client-dialog-heading > p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .option-checkbox { display: flex; min-width: 0; align-items: center; gap: 8px; cursor: pointer; color: #56615d; font-size: 13px; font-weight: 650; }
-.option-checkbox input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.option-checkbox i { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border: 1px solid #c9d3cf; border-radius: 5px; color: #fff; font-size: 11px; font-style: normal; }
-.option-checkbox input:checked + i { border-color: var(--brand); background: var(--brand); }
+.option-checkbox input { position: static; width: 20px; height: 20px; flex: 0 0 auto; opacity: 1; }
 .option-money-input, .water-money-input { display: flex; width: 146px; height: 36px; align-items: center; border: 1px solid #cbd8d3; border-radius: 8px; }
 .option-money-input input, .water-money-input input { min-width: 0; width: 100%; border: 0; outline: 0; padding: 0 5px 0 10px; background: transparent; font-family: var(--font-geist-mono), monospace; font-size: 14px; text-align: right; }
 .option-money-input span, .water-money-input span { padding-right: 9px; color: var(--muted); font-size: 12px; }
 .option-cost { color: var(--muted); font-family: var(--font-geist-mono), monospace; font-size: 13px; text-align: right; white-space: nowrap; }
-.option-empty { color: var(--muted); font-size: 12px; }
+.payment-enabled .option-cost,
+.payment-enabled .option-money-input input,
+.payment-enabled .option-money-input > span { color: var(--color-primary); font-weight: 700; }
 .transaction-option-list { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
 .client-error { margin-bottom: 11px; border: 1px solid #efc8c2; border-radius: 9px; background: #fff1ef; padding: 10px 13px; color: #a94033; font-size: 9px; }
 .generate-qr-button { display: inline-flex; width: 100%; height: 49px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; background: var(--brand); color: #fff; cursor: pointer; font-size: 11px; font-weight: 750; }
@@ -1059,48 +1071,60 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .client-user-debt strong { font-size: 13px; }
   .client-user-debt.has-debt strong { font-size: 16px; }
   .client-detail-main { width: 100%; padding-top: 0; }
-  .client-detail-header { position: sticky; top: 0; z-index: 20; display: flex; min-height: 68px; align-items: center; gap: 11px; border-bottom: 1px solid #dfe6e2; background: #f6f8f6ed; padding: 10px 12px; backdrop-filter: blur(12px); }
-  .client-detail-header .client-back { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; margin: 0; border: 1px solid #dce4e0; border-radius: 11px; background: #fff; }
+  .client-detail-header { position: sticky; top: 0; z-index: 20; display: flex; min-height: 74px; align-items: center; gap: 11px; border-bottom: 1px solid var(--color-base-300); background: color-mix(in oklab, var(--color-base-100) 94%, transparent); padding: 10px 16px; backdrop-filter: blur(14px); }
+  .client-detail-header .client-back { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; margin: 0; border: 1px solid color-mix(in oklab, var(--color-primary) 16%, transparent); border-radius: 12px; background: color-mix(in oklab, var(--color-primary) 6%, var(--color-base-100)); color: var(--color-primary); }
   .client-detail-header .client-back span { display: none; }
   .client-detail-header .client-back svg { width: 18px; }
-  .client-detail-header .client-person-heading { min-width: 0; flex: 1; margin: 0; }
+  .client-detail-header .client-person-heading { min-width: 0; flex: 1; margin: 0; border: 0; background: transparent; box-shadow: none; }
+  .client-detail-header .client-person-heading .card-body { gap: 10px; padding: 0; }
   .client-detail-header .client-person-identity { gap: 10px; }
-  .client-detail-header .client-person-identity > span { width: 40px; height: 40px; border-radius: 12px; }
-  .client-detail-header .client-person-heading h1 { overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+  .client-detail-header .client-person-identity > span { width: 44px; height: 44px; border-radius: 13px; box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--color-primary) 55%, transparent); }
+  .client-detail-header .client-person-heading h1 { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
   .client-detail-main > .unresolved-payment { margin: 12px; }
-  .client-debt-section { border-right: 0; border-left: 0; border-radius: 0; }
+  .client-debt-section { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .client-debt-section.is-clear { border-top: 0; border-bottom: 0; box-shadow: none; }
   .client-debt-section.is-clear .client-debt-overview,
   .client-debt-section.is-clear .client-debt-total { display: none; }
   .client-debt-section.is-clear .paid-empty { border: 0; border-radius: 0; background: #fff; padding: 40px 24px; }
-  .client-debt-overview { min-height: 76px; gap: 12px; padding: 13px 14px; }
-  .client-debt-overview h2 { font-size: 18px; }
-  .client-debt-overview p { font-size: 11px; }
+  .client-debt-overview { min-height: 0; align-items: flex-start; gap: 10px; border: 0; background: transparent; padding: 19px 16px 14px; }
+  .client-debt-overview h2 { font-size: 19px; }
+  .client-debt-overview p { max-width: 235px; margin-top: 4px; font-size: 12px; line-height: 1.5; }
+  .client-debt-overview > .badge { height: 30px; margin-top: 1px; padding-inline: 11px; font-size: 11px; }
   .client-debt-total strong { font-size: 18px; }
-  .client-debt-total, .client-debt-column-head, .client-debt-card { grid-template-columns: 46px minmax(0, 1fr) 42px 88px; gap: 8px; }
+  .client-debt-column-head { display: none; }
+  .client-debt-list { gap: 10px; padding: 0 16px 16px; }
+  .client-debt-total, .client-debt-card { grid-template-columns: 52px minmax(0, 1fr) auto auto; gap: 12px; }
   .client-debt-total { min-height: 58px; padding: 11px 12px; }
   .client-debt-total span { font-size: 13px; }
-  .client-debt-column-head { padding: 8px 12px; font-size: 10px; }
-  .client-debt-card { min-height: 96px; padding: 14px 12px; }
-  .debt-date { width: 46px; height: 53px; }
-  .debt-info h2 { font-size: 14px; }
+  .client-debt-card { min-height: 80px; align-items: center; border: 1px solid color-mix(in oklab, var(--color-base-content) 6%, transparent); border-radius: 18px; background: var(--color-base-100); padding: 14px; box-shadow: 0 1px 2px color-mix(in oklab, var(--color-base-content) 4%, transparent), 0 8px 20px -12px color-mix(in oklab, var(--color-base-content) 18%, transparent); }
+  .client-debt-card:hover { background: var(--color-base-100); transform: none; }
+  .debt-date { width: 52px; height: 52px; border-radius: 13px; }
+  .debt-date strong { font-size: 18px; }
+  .debt-date span { margin-top: 4px; font-size: 8.5px; letter-spacing: .03em; }
+  .debt-info h2 { margin-bottom: 0; font-size: 14.5px; font-weight: 650; }
   .debt-info p { font-size: 11px; }
   .debt-info > span { font-size: 10px; }
-  .debt-slots { min-width: 0; padding: 3px 6px; }
-  .debt-slots strong { font-size: 13px; }
-  .debt-amount { font-size: 14px; }
+  .debt-slots { min-width: 0; min-height: 0; border: 0; padding: 0; color: var(--color-base-content); }
+  .debt-slots strong { color: var(--color-base-content); font-size: 12px; font-weight: 550; }
+  .debt-slots strong::before { content: "×"; }
+  .debt-amount { color: var(--color-error); font-size: 14.5px; }
   .payment-enabled .client-debt-column-head span:nth-child(3) { text-align: right; }
-  .payment-enabled .debt-extra-options { align-items: stretch; flex-direction: column; gap: 8px; }
+  .payment-enabled .debt-extra-options { align-items: stretch; flex-direction: column; gap: 8px; margin-top: 0; border-color: var(--color-base-300); padding-top: 10px; }
+  .payment-enabled .debt-options-label { font-size: 11px; }
   .payment-enabled .debt-option-list { min-width: 0; width: 100%; }
+  .payment-enabled .debt-option-control { min-height: 27px; }
+  .payment-enabled .option-checkbox { font-size: 13px; }
+  .payment-enabled .option-checkbox input { width: 18px; height: 18px; }
+  .payment-enabled .option-cost { font-size: 13px; }
   .payment-enabled .option-money-input { width: 110px; }
-  .payment-enabled { margin-bottom: 122px; }
+  .payment-enabled { min-height: calc(100dvh - 74px); margin-bottom: 116px; padding-bottom: 8px; }
   .client-payment-error { margin: 12px; }
-  .client-debt-checkout { position: fixed; right: 0; bottom: 0; left: 0; z-index: 70; display: grid; grid-template-columns: 1fr; gap: 8px; border-top: 1px solid #d7e1dc; background: #fff; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 30px #173c2f1a; }
+  .client-debt-checkout { position: fixed; right: 0; bottom: 0; left: 0; z-index: 70; display: grid; grid-template-columns: 1fr; gap: 10px; border-top: 1px solid var(--color-base-300); background: var(--color-base-100); padding: 13px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 24px -18px color-mix(in oklab, var(--color-base-content) 40%, transparent); }
   .client-debt-checkout .client-debt-total { display: flex; min-height: 0; align-items: center; justify-content: space-between; flex-direction: row; gap: 12px; border: 0; background: transparent; padding: 0 2px; }
   .client-debt-checkout .client-debt-total span { font-size: 13px; }
-  .client-debt-checkout .client-debt-total strong { font-size: 20px; }
+  .client-debt-checkout .client-debt-total strong { color: var(--color-primary); font-size: 23px; }
   .client-debt-checkout .client-debt-action { border: 0; background: transparent; padding: 0; }
-  .client-debt-checkout .generate-qr-button { height: 48px; font-size: 13px; }
+  .client-debt-checkout .generate-qr-button { height: 50px; border-radius: 15px; background: linear-gradient(180deg, var(--color-primary), color-mix(in oklab, var(--color-primary) 78%, black)); font-size: 15px; box-shadow: 0 12px 28px -10px color-mix(in oklab, var(--color-primary) 45%, transparent); }
   .client-dialog-backdrop { align-items: end; padding: 0; }
   .client-payment-dialog, .client-payment-dialog.qr-step { width: 100%; max-height: 93vh; border-radius: 20px 20px 0 0; padding: 25px 16px 22px; }
 }
