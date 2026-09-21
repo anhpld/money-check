@@ -23,10 +23,10 @@ export function getTotalPaidAmount(
 export function getOutstandingAmount(
   amountDue: number,
   footballPaid: number,
-  manualOptions: readonly PaidOption[],
-  paidItems: readonly PaidItem[],
 ) {
-  return Math.max(amountDue - getTotalPaidAmount(footballPaid, manualOptions, paidItems), 0);
+  // Options are independent add-ons. Paying an option must never reduce the
+  // outstanding amount of the collection's main obligation.
+  return Math.max(amountDue - footballPaid, 0);
 }
 
 export function getPaidBreakdownTotal(breakdown: {

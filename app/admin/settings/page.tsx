@@ -51,7 +51,7 @@ export default async function SettingsPage() {
           <div>
             <span className="settings-section-label">Dọn dữ liệu</span>
             <h2>Reset dữ liệu, giữ người dùng</h2>
-            <p>Xóa toàn bộ khoản thu, giao dịch và webhook log nhưng giữ nguyên danh sách user, avatar và cấu hình hệ thống.</p>
+            <p>Xóa toàn bộ trận đấu, khoản thu, giao dịch và webhook log nhưng giữ nguyên user, đối thủ, avatar và cấu hình hệ thống.</p>
           </div>
           <ResetActivityDataButton />
         </section>
@@ -60,7 +60,7 @@ export default async function SettingsPage() {
           <div>
             <span className="settings-danger-label">Vùng nguy hiểm</span>
             <h2>Reset dữ liệu ứng dụng</h2>
-            <p>Xóa toàn bộ người dùng, khoản thu và lịch sử giao dịch hiện tại. Cấu hình hệ thống và tài khoản admin vẫn được giữ nguyên.</p>
+            <p>Xóa toàn bộ người dùng, đối thủ, trận đấu, khoản thu và lịch sử giao dịch. Cấu hình hệ thống và tài khoản admin vẫn được giữ nguyên.</p>
           </div>
           <ResetDataButton />
         </section>

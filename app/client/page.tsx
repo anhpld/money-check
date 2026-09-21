@@ -19,11 +19,6 @@ export default async function ClientPage() {
           select: {
             amountDue: true,
             amountPaid: true,
-            manualPaymentOptions: { select: { amount: true } },
-            paymentItems: {
-              where: { paymentRequest: { status: "PAID" } },
-              select: { options: { select: { amount: true } } },
-            },
           },
         },
       },
@@ -34,8 +29,6 @@ export default async function ClientPage() {
     const debts = user.sessionMembers.map((member) => getOutstandingAmount(
       member.amountDue,
       member.amountPaid,
-      member.manualPaymentOptions,
-      member.paymentItems,
     ));
     return {
       id: user.id,

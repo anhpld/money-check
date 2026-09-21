@@ -35,8 +35,6 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
       const outstanding = getOutstandingAmount(
         member.amountDue,
         member.amountPaid,
-        member.manualPaymentOptions,
-        member.paymentItems,
       );
       const paidOptionIds = new Set([
         ...member.manualPaymentOptions.map((option) => option.optionId),
@@ -85,13 +83,13 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
           <header className={`client-debt-overview ${debts.length ? "has-debt" : "clear"}`}>
             <div>
               <h2>Khoản cần thanh toán</h2>
-              <p>{debts.length ? `${debts.length} buổi còn nợ` : "Không còn khoản nợ nào"}</p>
+              <p>{debts.length ? `${debts.length} khoản chưa thanh toán` : "Không còn khoản nợ nào"}</p>
             </div>
           </header>
           {debts.length ? (
             <div className="client-debt-column-head" aria-hidden="true">
-              <span>Chi tiết buổi</span>
-              <span>Slot</span>
+              <span>Khoản thu</span>
+              <span>SL</span>
               <span>Số tiền</span>
             </div>
           ) : null}
@@ -104,7 +102,7 @@ export default async function ClientUserPage({ params }: PageProps<"/client/[use
                 <strong className="debt-amount">{formatVnd(debt.totalOutstanding)}</strong>
               </article>
             ))}
-            {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Hẹn gặp bạn ở trận tiếp theo!</p></div> : null}
+            {!debts.length ? <div className="client-empty paid-empty"><span>✓</span><h2>Đã thanh toán hết</h2><p>Bạn không còn khoản nào cần trả.</p></div> : null}
           </div>
           <footer className={`client-debt-total ${debts.length ? "has-debt" : "clear"}`}>
             <span>{debts.length ? "Tổng" : "Trạng thái"}</span>

@@ -15,10 +15,11 @@ export function getPrisma() {
   // Prisma's singleton survives Next.js development hot reloads. Replace an
   // older generated client that was cached before the Setting model existed.
   const cachedPrisma = globalForPrisma.prisma;
-  const cachedHasSetting = cachedPrisma
-    ? Boolean((cachedPrisma as unknown as { setting?: unknown }).setting)
+  const cachedHasCurrentModels = cachedPrisma
+    ? Boolean((cachedPrisma as unknown as { setting?: unknown; opponent?: unknown }).setting)
+      && Boolean((cachedPrisma as unknown as { opponent?: unknown }).opponent)
     : false;
-  if (cachedPrisma && !cachedHasSetting) {
+  if (cachedPrisma && !cachedHasCurrentModels) {
     void cachedPrisma.$disconnect();
     globalForPrisma.prisma = undefined;
   }

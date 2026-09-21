@@ -45,7 +45,7 @@ export function ResetDataButton() {
             <div className="settings-reset-icon" aria-hidden="true">!</div>
             <div className="settings-reset-heading">
               <h2 id="reset-data-title">Xóa toàn bộ dữ liệu?</h2>
-              <p>Người dùng, khoản thu và giao dịch sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.</p>
+              <p>Người dùng, đối thủ, trận đấu, khoản thu và giao dịch sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.</p>
             </div>
             <label className="settings-confirm-field">
               <span>Nhập <strong>RESET</strong> để xác nhận</span>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { isAdminAuthenticated } from "@/lib/admin-session";
 import type { CollectionActionResult, PaidBreakdown, SaveCollectionInput } from "@/app/collections/types";
@@ -12,6 +13,18 @@ export type ManualPaymentResult =
 const relevantPaymentStatuses = ["PAID", "REVIEW_REQUIRED"] as const;
 
 type ManualOptionSelection = { optionId: string; amount: number };
+
+async function resolveOpponent(transaction: Prisma.TransactionClient, input: SaveCollectionInput) {
+  if (input.kind === "GENERAL") return null;
+  const name = input.newOpponentName.trim();
+  if (name) {
+    const existing = await transaction.opponent.findFirst({ where: { name: { equals: name, mode: "insensitive" } } });
+    return (existing ?? await transaction.opponent.create({ data: { name } })).id;
+  }
+  const opponent = await transaction.opponent.findUnique({ where: { id: input.opponentId } });
+  if (!opponent) throw new Error("OPPONENT_NOT_FOUND");
+  return opponent.id;
+}
 
 function buildPaidBreakdown(
   footballAmount: number,
@@ -80,10 +93,7 @@ export async function markMemberPaidManually(
       const paidOptionIds = new Set(
         existingPaidOptions.map((option) => option.optionId).filter((optionId): optionId is string => Boolean(optionId)),
       );
-      const existingPaidOptionsTotal = existingPaidOptions.reduce((sum, option) => sum + option.amount, 0);
-      const totalPaid = member.amountPaid + existingPaidOptionsTotal;
-
-      if (totalPaid >= member.amountDue) {
+      if (member.amountPaid >= member.amountDue) {
         return {
           amountPaid: member.amountPaid,
           manualPaidAt: member.manualPaidAt,
@@ -117,7 +127,7 @@ export async function markMemberPaidManually(
         data: { status: "CANCELLED" },
       });
 
-      const footballAmount = Math.max(member.amountDue - totalPaid, 0);
+      const footballAmount = Math.max(member.amountDue - member.amountPaid, 0);
       const updated = await transaction.sessionMember.update({
         where: { id: member.id },
         data: {
@@ -197,6 +207,7 @@ export async function deleteCollection(id: string): Promise<CollectionActionResu
     });
 
     revalidatePath("/admin/collections");
+    revalidatePath("/admin/statistics");
     revalidatePath("/client");
     return { status: "success", message: `Đã xóa khoản thu ${deletedTitle}.` };
   } catch (error) {
@@ -209,9 +220,14 @@ export async function deleteCollection(id: string): Promise<CollectionActionResu
 }
 
 function validateCollection(input: SaveCollectionInput): string | null {
-  if (input.title.trim().length < 3) return "Tên buổi bóng cần có ít nhất 3 ký tự.";
-  if (!input.playedAt || Number.isNaN(new Date(input.playedAt).getTime())) return "Ngày đá bóng không hợp lệ.";
-  if (!Number.isInteger(input.totalAmount) || input.totalAmount <= 0) return "Tổng tiền phải lớn hơn 0.";
+  if (input.kind !== "MATCH" && input.kind !== "GENERAL") return "Loại khoản thu không hợp lệ.";
+  if (input.title.trim().length < 3) return "Tên khoản thu cần có ít nhất 3 ký tự.";
+  if (!input.playedAt || Number.isNaN(new Date(input.playedAt).getTime())) return "Ngày áp dụng không hợp lệ.";
+  if (!Number.isInteger(input.totalAmount) || input.totalAmount < 0 || (input.kind === "GENERAL" && input.totalAmount === 0)) return "Tổng tiền không hợp lệ.";
+  if (input.kind === "MATCH" && !input.opponentId && input.newOpponentName.trim().length < 2) return "Hãy chọn hoặc nhập đối thủ.";
+  if (input.newOpponentName.trim().length > 100) return "Tên đối thủ không được quá 100 ký tự.";
+  if ((input.ourScore === null) !== (input.opponentScore === null)) return "Cần nhập đủ tỷ số của hai đội.";
+  if ((input.ourScore !== null && (!Number.isInteger(input.ourScore) || input.ourScore < 0)) || (input.opponentScore !== null && (!Number.isInteger(input.opponentScore) || input.opponentScore < 0))) return "Tỷ số không hợp lệ.";
   if (!Array.isArray(input.members) || !input.members.length) return "Cần chọn ít nhất một người tham gia.";
   if (!Array.isArray(input.chargeOptions)) return "Danh sách tùy chọn không hợp lệ.";
 
@@ -233,6 +249,8 @@ function validateCollection(input: SaveCollectionInput): string | null {
     if (!Number.isInteger(member.slots) || member.slots < 1) return "Số slot của người tham gia không hợp lệ.";
     if (!Number.isInteger(member.amountDue) || member.amountDue < 0) return "Số tiền của người tham gia không hợp lệ.";
     if (typeof member.note !== "string" || member.note.length > 500) return "Ghi chú của người tham gia không hợp lệ.";
+    if (!Number.isInteger(member.goals) || member.goals < 0 || !Number.isInteger(member.assists) || member.assists < 0) return "Bàn thắng hoặc kiến tạo không hợp lệ.";
+    if (member.exemptionReason.length > 300) return "Lý do miễn đóng quá dài.";
     userIds.add(member.userId);
   }
 
@@ -252,34 +270,38 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
     const prisma = getPrisma();
 
     if (!input.id) {
-      const session = await prisma.footballSession.create({
-        data: {
-          title,
-          playedAt,
-          note,
-          totalAmount: input.totalAmount,
-          status: input.status,
-          publishedAt: input.status === "PUBLISHED" ? new Date() : null,
-          members: {
-            create: input.members.map((member) => ({
-              userId: member.userId,
-              slots: member.slots,
-              amountDue: member.amountDue,
-              note: member.note.trim() || null,
-            })),
+      const session = await prisma.$transaction(async (transaction) => {
+        const opponentId = await resolveOpponent(transaction, input);
+        return transaction.footballSession.create({
+          data: {
+            kind: input.kind,
+            title,
+            playedAt,
+            opponentId,
+            ourScore: input.kind === "MATCH" ? input.ourScore : null,
+            opponentScore: input.kind === "MATCH" ? input.opponentScore : null,
+            note,
+            totalAmount: input.totalAmount,
+            status: input.status,
+            publishedAt: input.status === "PUBLISHED" ? new Date() : null,
+            members: {
+              create: input.members.map((member) => ({
+                userId: member.userId,
+                slots: member.slots,
+                amountDue: input.kind === "MATCH" && member.isFeeExempt ? 0 : member.amountDue,
+                note: member.note.trim() || null,
+                isFeeExempt: input.kind === "MATCH" && member.isFeeExempt,
+                exemptionReason: input.kind === "MATCH" && member.isFeeExempt ? member.exemptionReason.trim() || null : null,
+                goals: input.kind === "MATCH" ? member.goals : 0,
+                assists: input.kind === "MATCH" ? member.assists : 0,
+              })),
+            },
+            chargeOptions: {
+              create: input.chargeOptions.map((option, sortOrder) => ({ id: option.id, name: option.name.trim(), defaultAmount: option.defaultAmount, autoSelected: option.autoSelected, allowCustomAmount: option.allowCustomAmount, sortOrder })),
+            },
           },
-          chargeOptions: {
-            create: input.chargeOptions.map((option, sortOrder) => ({
-              id: option.id,
-              name: option.name.trim(),
-              defaultAmount: option.defaultAmount,
-              autoSelected: option.autoSelected,
-              allowCustomAmount: option.allowCustomAmount,
-              sortOrder,
-            })),
-          },
-        },
-        select: { id: true },
+          select: { id: true },
+        });
       });
 
       revalidatePath("/admin/collections");
@@ -301,16 +323,21 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
       (member) => !incomingByUser.has(member.userId) && member.amountPaid > 0,
     );
     if (removedPaidMember) {
-      return { status: "error", message: "Không thể bỏ người đã phát sinh thanh toán khỏi buổi bóng." };
+      return { status: "error", message: "Không thể bỏ người đã phát sinh thanh toán khỏi khoản thu." };
     }
 
     const nextStatus = existing.status === "DRAFT" ? input.status : existing.status;
     await prisma.$transaction(async (transaction) => {
+      const opponentId = await resolveOpponent(transaction, input);
       await transaction.footballSession.update({
         where: { id: existing.id },
         data: {
           title,
+          kind: input.kind,
           playedAt,
+          opponentId,
+          ourScore: input.kind === "MATCH" ? input.ourScore : null,
+          opponentScore: input.kind === "MATCH" ? input.opponentScore : null,
           note,
           totalAmount: input.totalAmount,
           status: nextStatus,
@@ -355,22 +382,43 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
 
         await transaction.sessionMember.update({
           where: { id: current.id },
-          data: { slots: incoming.slots, amountDue: incoming.amountDue, note: incoming.note.trim() || null },
+          data: {
+            slots: incoming.slots,
+            amountDue: input.kind === "MATCH" && incoming.isFeeExempt ? 0 : incoming.amountDue,
+            note: incoming.note.trim() || null,
+            isFeeExempt: input.kind === "MATCH" && incoming.isFeeExempt,
+            exemptionReason: input.kind === "MATCH" && incoming.isFeeExempt ? incoming.exemptionReason.trim() || null : null,
+            goals: input.kind === "MATCH" ? incoming.goals : 0,
+            assists: input.kind === "MATCH" ? incoming.assists : 0,
+          },
         });
         incomingByUser.delete(current.userId);
       }
 
       for (const member of incomingByUser.values()) {
         await transaction.sessionMember.create({
-          data: { sessionId: existing.id, userId: member.userId, slots: member.slots, amountDue: member.amountDue, note: member.note.trim() || null },
+          data: {
+            sessionId: existing.id,
+            userId: member.userId,
+            slots: member.slots,
+            amountDue: input.kind === "MATCH" && member.isFeeExempt ? 0 : member.amountDue,
+            note: member.note.trim() || null,
+            isFeeExempt: input.kind === "MATCH" && member.isFeeExempt,
+            exemptionReason: input.kind === "MATCH" && member.isFeeExempt ? member.exemptionReason.trim() || null : null,
+            goals: input.kind === "MATCH" ? member.goals : 0,
+            assists: input.kind === "MATCH" ? member.assists : 0,
+          },
         });
       }
     });
 
     revalidatePath("/admin/collections");
     revalidatePath(`/admin/collections/${existing.id}`);
+    revalidatePath("/admin/statistics");
+    revalidatePath("/client");
     return { status: "success", message: "Đã lưu thay đổi khoản thu.", id: existing.id };
   } catch (error) {
+    if (error instanceof Error && error.message === "OPPONENT_NOT_FOUND") return { status: "error", message: "Không tìm thấy đối thủ." };
     console.error("Không thể lưu khoản thu:", error);
     return { status: "error", message: "Không thể lưu khoản thu. Vui lòng thử lại." };
   }

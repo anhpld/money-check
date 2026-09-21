@@ -47,7 +47,7 @@ export function ResetActivityDataButton() {
             <div className="settings-reset-icon secondary" aria-hidden="true">!</div>
             <div className="settings-reset-heading">
               <h2 id="reset-activity-title">Xóa dữ liệu thu chi?</h2>
-              <p>Khoản thu, phân bổ, mã thanh toán, giao dịch và webhook log sẽ bị xóa. User, avatar, trạng thái Active/Inactive và setting được giữ nguyên.</p>
+              <p>Trận đấu, khoản thu, phân bổ, mã thanh toán, giao dịch và webhook log sẽ bị xóa. User, đối thủ, avatar, trạng thái Active/Inactive và setting được giữ nguyên.</p>
             </div>
             <label className="settings-confirm-field">
               <span>Nhập <strong>RESET</strong> để xác nhận</span>

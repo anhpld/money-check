@@ -6,7 +6,6 @@ import { isAdminAuthenticated } from "@/lib/admin-session";
 import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
 import { sendConfiguredMessengerMessage } from "@/lib/messenger-message";
 import { getPrisma } from "@/lib/prisma";
-import { getTotalPaidAmount } from "@/lib/payment-totals";
 import {
   clearStoredAvatars,
   deleteStoredAvatar,
@@ -303,17 +302,12 @@ export async function sendDebtReminder(
       select: {
         amountDue: true,
         amountPaid: true,
-        manualPaymentOptions: { select: { amount: true } },
-        paymentItems: {
-          where: { paymentRequest: { status: "PAID" } },
-          select: { options: { select: { amount: true } } },
-        },
         user: { select: { id: true, name: true } },
       },
     });
     const debtCountByUser = new Map<string, { name: string; count: number }>();
     for (const member of members) {
-      if (getTotalPaidAmount(member.amountPaid, member.manualPaymentOptions, member.paymentItems) >= member.amountDue) continue;
+      if (member.amountPaid >= member.amountDue) continue;
       const current = debtCountByUser.get(member.user.id);
       debtCountByUser.set(member.user.id, {
         name: member.user.name,
@@ -436,10 +430,11 @@ export async function resetApplicationData(confirmation: string): Promise<ResetD
 
   try {
     const prisma = getPrisma();
-    const [webhookLogs, payments, sessions, users] = await prisma.$transaction([
+    const [webhookLogs, payments, sessions, opponents, users] = await prisma.$transaction([
       prisma.webhookLog.deleteMany(),
       prisma.paymentRequest.deleteMany(),
       prisma.footballSession.deleteMany(),
+      prisma.opponent.deleteMany(),
       prisma.user.deleteMany(),
     ]);
     await clearStoredAvatars().catch((error) => {
@@ -448,13 +443,14 @@ export async function resetApplicationData(confirmation: string): Promise<ResetD
 
     revalidatePath("/admin");
     revalidatePath("/admin/collections");
+    revalidatePath("/admin/statistics");
     revalidatePath("/admin/transactions");
     revalidatePath("/admin/settings");
     revalidatePath("/client");
 
     return {
       status: "success",
-      message: `Đã xóa ${users.count} người dùng, ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log.`,
+      message: `Đã xóa ${users.count} người dùng, ${opponents.count} đối thủ, ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log.`,
     };
   } catch (error) {
     console.error("Không thể reset dữ liệu:", error);
@@ -476,6 +472,7 @@ export async function resetActivityData(confirmation: string): Promise<ResetData
 
     revalidatePath("/admin");
     revalidatePath("/admin/collections");
+    revalidatePath("/admin/statistics");
     revalidatePath("/admin/transactions");
     revalidatePath("/admin/webhook-logs");
     revalidatePath("/admin/settings");
@@ -483,7 +480,7 @@ export async function resetActivityData(confirmation: string): Promise<ResetData
 
     return {
       status: "success",
-      message: `Đã xóa ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log. User và setting được giữ nguyên.`,
+      message: `Đã xóa ${sessions.count} khoản thu, ${payments.count} giao dịch và ${webhookLogs.count} webhook log. User, đối thủ và setting được giữ nguyên.`,
     };
   } catch (error) {
     console.error("Không thể reset dữ liệu thu chi:", error);

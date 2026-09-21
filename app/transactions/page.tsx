@@ -91,7 +91,7 @@ export default async function TransactionsPage({
                     <time>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(transaction.createdAt)}</time>
                   </div>
                   <div className="transaction-user"><strong>{transaction.user.name}</strong><span>{transaction.items.length} khoản</span></div>
-                  <div className="transaction-sessions"><strong>{sessionNames[0] ?? "Không có khoản thu"}</strong>{sessionNames.length > 1 ? <span>+{sessionNames.length - 1} buổi khác</span> : transaction.items[0] ? <span>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "UTC" }).format(transaction.items[0].sessionMember.session.playedAt)}</span> : null}</div>
+                  <div className="transaction-sessions"><strong>{sessionNames[0] ?? "Không có khoản thu"}</strong>{sessionNames.length > 1 ? <span>+{sessionNames.length - 1} khoản khác</span> : transaction.items[0] ? <span>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "UTC" }).format(transaction.items[0].sessionMember.session.playedAt)}</span> : null}</div>
                   <div className="transaction-amounts"><span><small>Cần nhận</small><strong>{formatVnd(transaction.expectedAmount)}</strong></span><span><small>Thực nhận</small><strong>{transaction.actualAmount === null ? "—" : formatVnd(transaction.actualAmount)}</strong></span>{transaction.actualAmount !== null && difference !== 0 ? <em>{difference > 0 ? "+" : ""}{formatVnd(difference)}</em> : null}</div>
                   <span className={`transaction-status ${transaction.status.toLowerCase()}`}>{paymentStatusLabels[transaction.status]}</span>
                 </Link>

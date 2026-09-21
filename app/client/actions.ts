@@ -144,15 +144,13 @@ export async function createOrReusePaymentRequest(input: CreatePaymentInput): Pr
       },
     });
     if (members.length !== selectionsByMember.size) {
-      return { status: "error", message: "Danh sách buổi cần thanh toán không hợp lệ." };
+      return { status: "error", message: "Danh sách khoản cần thanh toán không hợp lệ." };
     }
 
     const items = members.map((member) => {
       const footballAmount = getOutstandingAmount(
         member.amountDue,
         member.amountPaid,
-        member.manualPaymentOptions,
-        member.paymentItems,
       );
       const availableOptions = new Map(member.session.chargeOptions.map((option) => [option.id, option]));
       const paidOptionIds = new Set([

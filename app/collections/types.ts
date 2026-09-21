@@ -9,6 +9,15 @@ export type CollectionMemberInput = {
   slots: number;
   amountDue: number;
   note: string;
+  isFeeExempt: boolean;
+  exemptionReason: string;
+  goals: number;
+  assists: number;
+};
+
+export type CollectionOpponent = {
+  id: string;
+  name: string;
 };
 
 export type CollectionChargeOption = {
@@ -26,8 +35,12 @@ export type PaidBreakdown = {
 
 export type CollectionEditorData = {
   id: string;
+  kind: "MATCH" | "GENERAL";
   title: string;
   playedAt: string;
+  opponentId: string | null;
+  ourScore: number | null;
+  opponentScore: number | null;
   note: string;
   totalAmount: number;
   chargeOptions: CollectionChargeOption[];
@@ -43,8 +56,13 @@ export type CollectionEditorData = {
 
 export type SaveCollectionInput = {
   id?: string;
+  kind: "MATCH" | "GENERAL";
   title: string;
   playedAt: string;
+  opponentId: string;
+  newOpponentName: string;
+  ourScore: number | null;
+  opponentScore: number | null;
   note: string;
   totalAmount: number;
   chargeOptions: CollectionChargeOption[];

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { MobileAdminMenu } from "@/app/components/mobile-admin-menu";
 
-type AdminSection = "users" | "collections" | "transactions" | "webhooks" | "settings";
+type AdminSection = "users" | "collections" | "statistics" | "transactions" | "webhooks" | "settings";
 
 function BrandMark() {
   return (
@@ -42,6 +42,7 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
           <span className="nav-disabled" aria-disabled="true"><SidebarIcon type="grid" />Tổng quan<span className="soon">Chưa dùng</span></span>
           <Link href="/admin" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
           <Link href="/admin/collections" className={active === "collections" ? "active" : undefined}><SidebarIcon type="wallet" />Khoản thu</Link>
+          <Link href="/admin/statistics" className={active === "statistics" ? "active" : undefined}><SidebarIcon type="grid" />Thống kê</Link>
           <Link href="/admin/transactions" className={active === "transactions" ? "active" : undefined}><SidebarIcon type="swap" />Giao dịch</Link>
           <p>HỆ THỐNG</p>
           <Link href="/admin/webhook-logs" className={active === "webhooks" ? "active" : undefined}><SidebarIcon type="hook" />Webhook</Link>

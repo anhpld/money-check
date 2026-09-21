@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 const navigation = [
   { key: "users", href: "/admin", label: "Người dùng" },
   { key: "collections", href: "/admin/collections", label: "Khoản thu" },
+  { key: "statistics", href: "/admin/statistics", label: "Thống kê" },
   { key: "transactions", href: "/admin/transactions", label: "Giao dịch" },
   { key: "webhooks", href: "/admin/webhook-logs", label: "Webhook" },
   { key: "settings", href: "/admin/settings", label: "Cài đặt" },

@@ -48,7 +48,7 @@ export function ClientUserList({ users }: { users: ClientUserSummary[] }) {
                 <strong>{user.name}</strong>
                 {user.recentlyPaid ? <span className="client-recent-payment">Thanh toán gần đây</span> : null}
               </span>
-              <small>{user.debtCount ? `${user.debtCount} buổi chưa thanh toán` : "Không còn khoản nào cần trả"}</small>
+              <small>{user.debtCount ? `${user.debtCount} khoản chưa thanh toán` : "Không còn khoản nào cần trả"}</small>
             </span>
             <span className={`client-user-debt ${user.debtCount ? "has-debt" : "clear"}`}>
               <strong>{user.debtCount ? formatVnd(user.outstanding) : "Hết nợ"}</strong>

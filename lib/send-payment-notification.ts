@@ -30,7 +30,7 @@ function formatDayMonth(date: Date) {
 function buildMessage(notification: PaymentNotification) {
   const sessionDescriptions = notification.items.map((item) => {
     const details = [
-      `tiền bóng ${formatVnd(item.footballAmount)}`,
+      `khoản chính ${formatVnd(item.footballAmount)}`,
       ...item.options.map((option) => `${option.name} ${formatVnd(option.amount)}`),
     ];
     return `${item.title} ${formatDayMonth(item.playedAt)} - ${details.join(", ")}`;

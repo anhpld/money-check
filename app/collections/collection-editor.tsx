@@ -5,17 +5,23 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { deleteCollection, markMemberPaidManually, saveCollection } from "@/app/collections/actions";
-import type { CollectionChargeOption, CollectionEditorData, CollectionUser, PaidBreakdown } from "@/app/collections/types";
+import type { CollectionChargeOption, CollectionEditorData, CollectionOpponent, CollectionUser, PaidBreakdown } from "@/app/collections/types";
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 import { getPaidBreakdownTotal } from "@/lib/payment-totals";
 
-export function CollectionEditor({ users, initial }: { users: CollectionUser[]; initial?: CollectionEditorData }) {
+export function CollectionEditor({ users, opponents, initial }: { users: CollectionUser[]; opponents: CollectionOpponent[]; initial?: CollectionEditorData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
+  const [kind, setKind] = useState<"MATCH" | "GENERAL">(initial?.kind ?? "MATCH");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? "");
+  const [opponentId, setOpponentId] = useState(initial?.opponentId ?? "");
+  const [addingOpponent, setAddingOpponent] = useState(false);
+  const [newOpponentName, setNewOpponentName] = useState("");
+  const [ourScore, setOurScore] = useState<number | null>(initial?.ourScore ?? null);
+  const [opponentScore, setOpponentScore] = useState<number | null>(initial?.opponentScore ?? null);
   const [note, setNote] = useState(initial?.note ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0);
   const [chargeOptions, setChargeOptions] = useState<CollectionChargeOption[]>(initial?.chargeOptions ?? []);
@@ -28,6 +34,18 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   );
   const [memberNotes, setMemberNotes] = useState<Record<string, string>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.note]) ?? []),
+  );
+  const [feeExemptions, setFeeExemptions] = useState<Record<string, boolean>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.isFeeExempt]) ?? []),
+  );
+  const [exemptionReasons, setExemptionReasons] = useState<Record<string, string>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.exemptionReason]) ?? []),
+  );
+  const [goals, setGoals] = useState<Record<string, number>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.goals]) ?? []),
+  );
+  const [assists, setAssists] = useState<Record<string, number>>(
+    Object.fromEntries(initial?.members.map((member) => [member.userId, member.assists]) ?? []),
   );
   const [paidAmounts, setPaidAmounts] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.amountPaid]) ?? []),
@@ -67,7 +85,8 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
       };
       return rank(left.id) - rank(right.id) || left.name.localeCompare(right.name, "vi");
     });
-  const totalSlots = selectedIds.reduce((sum, userId) => sum + (slots[userId] ?? 1), 0);
+  const chargeableIds = selectedIds.filter((userId) => kind !== "MATCH" || !feeExemptions[userId]);
+  const totalSlots = chargeableIds.reduce((sum, userId) => sum + (slots[userId] ?? 1), 0);
   const amountPerSlot = totalSlots
     ? roundUpToOneThousand(totalAmount / totalSlots)
     : 0;
@@ -75,10 +94,9 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   const difference = allocatedAmount - totalAmount;
 
   function distributeEvenly(ids: string[], total: number, slotValues = slots) {
-    setAmounts(allocateBySlots(
-      total,
-      ids.map((id) => ({ id, slots: slotValues[id] ?? 1 })),
-    ));
+    const splitIds = ids.filter((id) => kind !== "MATCH" || !feeExemptions[id]);
+    const distributed = allocateBySlots(total, splitIds.map((id) => ({ id, slots: slotValues[id] ?? 1 })));
+    setAmounts((current) => Object.fromEntries(ids.map((id) => [id, kind === "MATCH" && feeExemptions[id] ? 0 : distributed[id] ?? current[id] ?? 0])));
   }
 
   function changeTotal(value: number) {
@@ -98,6 +116,10 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
       else next[userId] = "";
       return next;
     });
+    setFeeExemptions((current) => ({ ...current, [userId]: false }));
+    setExemptionReasons((current) => ({ ...current, [userId]: "" }));
+    setGoals((current) => ({ ...current, [userId]: 0 }));
+    setAssists((current) => ({ ...current, [userId]: 0 }));
     setAmounts((current) => {
       const next = { ...current };
       if (isSelected) delete next[userId];
@@ -147,9 +169,11 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
   }
 
   function validate() {
-    if (title.trim().length < 3) return "Nhập tên buổi bóng có ít nhất 3 ký tự.";
-    if (!playedAt) return "Chọn ngày giờ đá bóng.";
-    if (totalAmount <= 0) return "Nhập tổng tiền lớn hơn 0.";
+    if (title.trim().length < 3) return "Nhập tên khoản thu có ít nhất 3 ký tự.";
+    if (!playedAt) return "Chọn ngày áp dụng.";
+    if (totalAmount < 0 || (kind === "GENERAL" && totalAmount === 0)) return "Kiểm tra lại tổng tiền.";
+    if (kind === "MATCH" && (addingOpponent ? newOpponentName.trim().length < 2 : !opponentId)) return "Chọn hoặc nhập đối thủ.";
+    if ((ourScore === null) !== (opponentScore === null)) return "Nhập đủ tỷ số của hai đội.";
     if (!selectedIds.length) return "Chọn ít nhất một người tham gia.";
     if (selectedIds.some((id) => !Number.isInteger(amounts[id]) || amounts[id] < 0)) return "Kiểm tra lại số tiền của người tham gia.";
     const optionNames = chargeOptions.map((option) => option.name.trim().toLocaleLowerCase("vi-VN"));
@@ -181,13 +205,27 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     startTransition(async () => {
       const result = await saveCollection({
         id: initial?.id,
+        kind,
         title,
         playedAt,
+        opponentId: addingOpponent ? "" : opponentId,
+        newOpponentName: addingOpponent ? newOpponentName : "",
+        ourScore: kind === "MATCH" ? ourScore : null,
+        opponentScore: kind === "MATCH" ? opponentScore : null,
         note,
         totalAmount,
         chargeOptions,
         status,
-        members: selectedIds.map((userId) => ({ userId, slots: slots[userId] ?? 1, amountDue: amounts[userId] ?? 0, note: memberNotes[userId] ?? "" })),
+        members: selectedIds.map((userId) => ({
+          userId,
+          slots: slots[userId] ?? 1,
+          amountDue: kind === "MATCH" && feeExemptions[userId] ? 0 : amounts[userId] ?? 0,
+          note: memberNotes[userId] ?? "",
+          isFeeExempt: kind === "MATCH" && Boolean(feeExemptions[userId]),
+          exemptionReason: exemptionReasons[userId] ?? "",
+          goals: goals[userId] ?? 0,
+          assists: assists[userId] ?? 0,
+        })),
       });
       if (result.status === "error") {
         setError(result.message);
@@ -258,9 +296,10 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
         </div>
 
         <section className="preview-summary panel">
-          <div><span>Buổi bóng</span><strong>{title}</strong></div>
-          <div><span>Ngày đá</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(playedAt))}</strong></div>
-          <div><span>Người tham gia</span><strong>{selectedIds.length} người · {totalSlots} slot</strong></div>
+          <div><span>Loại</span><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong></div>
+          <div><span>Khoản thu</span><strong>{title}</strong></div>
+          <div><span>Ngày áp dụng</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(playedAt))}</strong></div>
+          <div><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><strong>{selectedIds.length} người · {totalSlots} phần tính tiền</strong></div>
           <div><span>Tùy chọn chi phí</span><strong>{chargeOptions.length} tùy chọn</strong></div>
         </section>
 
@@ -273,18 +312,18 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
         </section>
 
         {difference !== 0 ? (
-          <div className="preview-warning"><span>!</span>Tổng tiền phân bổ đang {difference > 0 ? "cao hơn" : "thấp hơn"} tổng tiền buổi bóng {formatVnd(Math.abs(difference))}. Bạn vẫn có thể public.</div>
+          <div className="preview-warning"><span>!</span>Tổng tiền phân bổ đang {difference > 0 ? "cao hơn" : "thấp hơn"} tổng khoản thu {formatVnd(Math.abs(difference))}. Bạn vẫn có thể public.</div>
         ) : null}
 
         <article className="panel preview-members">
           <div className="list-header"><div><h2>Chi tiết từng người</h2><p>Số tiền cuối cùng do admin xác nhận</p></div></div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Người tham gia</th><th>Slot</th><th>Đã thanh toán</th><th>Phải đóng</th></tr></thead>
+              <thead><tr><th>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</th><th>Slot</th><th>Đã thanh toán</th><th>Phải đóng</th></tr></thead>
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
-                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
+                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{kind === "MATCH" ? <small>{feeExemptions[user.id] ? "Miễn đóng" : `${goals[user.id] ?? 0} bàn · ${assists[user.id] ?? 0} kiến tạo`}</small> : memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
                     <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td>
                     <td><div className="preview-paid-value"><strong>{formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
@@ -314,13 +353,20 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
     <div className="collection-editor">
       <div className="collection-editor-grid">
         <section className="panel editor-panel">
-          <div className="editor-section-heading"><span>01</span><div><h2>Thông tin buổi bóng</h2><p>Nhập tổng chi phí cần thu.</p></div></div>
+            <div className="editor-section-heading"><span>01</span><div><h2>Thông tin khoản thu</h2><p>Nhập tên để người đóng biết rõ nội dung và số tiền.</p></div></div>
           <div className="editor-fields">
-            <div className="field-group full-field"><label htmlFor="collection-title">Tên buổi bóng</label><input id="collection-title" className="plain-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ví dụ: Đá bóng tối thứ 5" maxLength={100} /></div>
-            <div className="field-group full-field"><label htmlFor="played-at">Ngày đá</label><input id="played-at" className="plain-input" type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></div>
+            <div className="field-group full-field"><label>Loại khoản thu</label><div className="collection-kind-selector"><button className={kind === "MATCH" ? "active" : ""} type="button" onClick={() => setKind("MATCH")}>Trận đấu</button><button className={kind === "GENERAL" ? "active" : ""} type="button" onClick={() => setKind("GENERAL")}>Khoản thu khác</button></div></div>
+            <div className="field-group full-field"><label htmlFor="collection-title">Tên khoản thu</label><input id="collection-title" className="plain-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={kind === "MATCH" ? "Ví dụ: Tiền sân tối thứ 5" : "Ví dụ: Áo đội mùa 2026"} maxLength={100} /></div>
+            <div className="field-group full-field"><label htmlFor="played-at">{kind === "MATCH" ? "Ngày đá" : "Ngày áp dụng"}</label><input id="played-at" className="plain-input" type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></div>
+            {kind === "MATCH" ? <>
+              <div className="field-group full-field"><label htmlFor="opponent">Đối thủ</label><select id="opponent" className="plain-input" value={addingOpponent ? "__new" : opponentId} onChange={(event) => { const create = event.target.value === "__new"; setAddingOpponent(create); if (!create) setOpponentId(event.target.value); }}><option value="">Chọn đối thủ</option>{opponents.map((opponent) => <option value={opponent.id} key={opponent.id}>{opponent.name}</option>)}<option value="__new">+ Thêm đối thủ mới</option></select></div>
+              {addingOpponent ? <div className="field-group full-field"><label htmlFor="new-opponent">Tên đối thủ mới</label><input id="new-opponent" className="plain-input" value={newOpponentName} maxLength={100} onChange={(event) => setNewOpponentName(event.target.value)} /></div> : null}
+              <div className="field-group"><label htmlFor="our-score">Bàn FC Đông Đô</label><input id="our-score" className="plain-input" type="number" min="0" value={ourScore ?? ""} onChange={(event) => setOurScore(event.target.value === "" ? null : Number(event.target.value))} placeholder="Chưa có" /></div>
+              <div className="field-group"><label htmlFor="opponent-score">Bàn đối thủ</label><input id="opponent-score" className="plain-input" type="number" min="0" value={opponentScore ?? ""} onChange={(event) => setOpponentScore(event.target.value === "" ? null : Number(event.target.value))} placeholder="Chưa có" /></div>
+            </> : null}
             <div className="field-group full-field"><label htmlFor="total-amount">Tổng tiền</label><div className="money-input"><input id="total-amount" type="text" inputMode="numeric" value={formatMoneyInput(totalAmount)} onChange={(event) => changeTotal(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div></div>
             <div className="field-group full-field charge-options-field">
-              <div className="charge-options-heading"><div><label>Tùy chọn chi phí</label><small className="field-hint">Ví dụ tiền nước, tiền áo. Tiền bóng luôn là khoản bắt buộc.</small></div><button type="button" onClick={addChargeOption}>+ Thêm tùy chọn</button></div>
+              <div className="charge-options-heading"><div><label>Khoản bổ sung tùy chọn</label><small className="field-hint">Tên và giá linh hoạt; người dùng tự chọn khi thanh toán.</small></div><button type="button" onClick={addChargeOption}>+ Thêm tùy chọn</button></div>
               <div className="charge-option-list">
                 {chargeOptions.map((option, index) => (
                   <div className="charge-option-row" key={option.id}>
@@ -332,16 +378,16 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                     <button className="charge-option-remove" type="button" aria-label={`Xóa ${option.name || `tùy chọn ${index + 1}`}`} onClick={() => setChargeOptions((current) => current.filter((item) => item.id !== option.id))}>×</button>
                   </div>
                 ))}
-                {!chargeOptions.length ? <div className="charge-option-empty">Chưa có tùy chọn. Người dùng chỉ thanh toán tiền bóng.</div> : null}
+                {!chargeOptions.length ? <div className="charge-option-empty">Không có khoản bổ sung. Người dùng chỉ thanh toán số tiền đã phân bổ.</div> : null}
               </div>
             </div>
-            <div className="field-group full-field"><label htmlFor="collection-note">Ghi chú</label><textarea id="collection-note" className="plain-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Thông tin thêm về buổi bóng..." maxLength={500} /></div>
+            <div className="field-group full-field"><label htmlFor="collection-note">Ghi chú</label><textarea id="collection-note" className="plain-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Ví dụ: loại áo, size, thời hạn đóng..." maxLength={500} /></div>
           </div>
         </section>
 
         <section className="panel editor-panel participant-panel">
           <div className="editor-section-heading participant-heading">
-            <span>02</span><div><h2>Chọn người tham gia</h2><p>Tiền chỉ được tính lại khi bạn bấm “Chia đều lại”.</p></div>
+            <span>02</span><div><h2>{kind === "MATCH" ? "Chọn người tham gia" : "Chọn người cần đóng"}</h2><p>{kind === "MATCH" ? "Người được chọn sẽ được tính một trận tham gia." : "Khoản này không được tính vào thống kê trận đấu."}</p></div>
             <button type="button" onClick={selectAll}>{selectedIds.length === users.length && users.length ? "Bỏ chọn" : "Chọn tất cả"}</button>
           </div>
           <div className="participant-list">
@@ -371,14 +417,14 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
             </button>
           </div>
           <div className="allocation-list">
-            <div className="allocation-columns" aria-hidden="true"><span>Người tham gia</span><span>Trạng thái</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
+            <div className="allocation-columns" aria-hidden="true"><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><span>Trạng thái</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
             {selectedUsers.map((user, index) => {
               const member = membersByUser.get(user.id);
               const amountPaid = paidAmounts[user.id] ?? 0;
               const amountDue = amounts[user.id] ?? 0;
               const paidBreakdown = paidBreakdowns[user.id] ?? { footballAmount: amountPaid, options: [] };
               const totalPaid = getPaidBreakdownTotal(paidBreakdown);
-              const paymentState = totalPaid <= 0 ? "unpaid" : totalPaid >= amountDue ? "paid" : "partial";
+              const paymentState = amountPaid >= amountDue ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
               return (
               <div className={`allocation-row ${paymentState}`} key={user.id}>
                 <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><div className="allocation-user-meta"><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small><button type="button" onClick={() => setExpandedNotes((current) => ({ ...current, [user.id]: !current[user.id] }))}>{expandedNotes[user.id] ? "Đóng ghi chú" : memberNotes[user.id] ? "Ghi chú" : "Ghi chú +"}</button></div></div></div>
@@ -393,7 +439,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                       className="manual-paid-button"
                       type="button"
                       disabled={isPending}
-                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - totalPaid, 0) })}
+                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - amountPaid, 0) })}
                     >
                       Ghi nhận thanh toán
                     </button>
@@ -404,7 +450,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                   {totalPaid > 0 ? <strong>{formatVnd(totalPaid)}</strong> : null}
                   {totalPaid > 0 ? (
                     <div className="allocation-paid-breakdown">
-                      <span>Tiền bóng: {formatVnd(paidBreakdown.footballAmount)}</span>
+                      <span>Khoản chính: {formatVnd(paidBreakdown.footballAmount)}</span>
                       {paidBreakdown.options.map((option) => <span key={option.name}>{option.name}: {formatVnd(option.amount)}</span>)}
                     </div>
                   ) : null}
@@ -420,8 +466,14 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
                 </div>
                 <div className="allocation-due-cell">
                   <small className="allocation-cell-label">Phải đóng</small>
-                  <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>
+                  <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" disabled={kind === "MATCH" && feeExemptions[user.id]} value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>
                 </div>
+                {kind === "MATCH" ? <div className="match-member-details">
+                  <label className="match-exempt-toggle"><input type="checkbox" checked={feeExemptions[user.id] ?? false} onChange={(event) => { setFeeExemptions((current) => ({ ...current, [user.id]: event.target.checked })); if (event.target.checked) setAmounts((current) => ({ ...current, [user.id]: 0 })); }} /><span>Miễn đóng</span></label>
+                  {feeExemptions[user.id] ? <input className="plain-input" value={exemptionReasons[user.id] ?? ""} onChange={(event) => setExemptionReasons((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="Lý do miễn đóng (không bắt buộc)" maxLength={300} /> : <span />}
+                  <label><span>Bàn thắng</span><input className="compact-number-input" type="number" min="0" value={goals[user.id] ?? 0} onChange={(event) => setGoals((current) => ({ ...current, [user.id]: Math.max(0, Number(event.target.value) || 0) }))} /></label>
+                  <label><span>Kiến tạo</span><input className="compact-number-input" type="number" min="0" value={assists[user.id] ?? 0} onChange={(event) => setAssists((current) => ({ ...current, [user.id]: Math.max(0, Number(event.target.value) || 0) }))} /></label>
+                </div> : null}
                 {expandedNotes[user.id] ? <label className="allocation-note-cell"><span>Ghi chú</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={`Nhập ghi chú cho ${user.name}...`} maxLength={500} /></label> : null}
               </div>
               );
@@ -446,7 +498,7 @@ export function CollectionEditor({ users, initial }: { users: CollectionUser[]; 
               </div>
             </div>
             <div className="manual-payment-breakdown">
-              <div><span>Tiền bóng còn lại</span><strong>{formatVnd(manualPaymentTarget.footballAmount)}</strong></div>
+              <div><span>Khoản chính còn lại</span><strong>{formatVnd(manualPaymentTarget.footballAmount)}</strong></div>
               {manualChargeOptions.map((option) => {
                 const selection = manualOptionSelections[option.id];
                 return (

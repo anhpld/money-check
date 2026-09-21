@@ -198,13 +198,13 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
         <header className="client-debt-overview has-debt">
           <div>
             <h2>Khoản cần thanh toán</h2>
-            <p>{debts.length} buổi còn nợ · Chọn thêm các tùy chọn nếu có</p>
+            <p>{debts.length} khoản chưa thanh toán · Chọn thêm tùy chọn nếu có</p>
           </div>
         </header>
         <div className="client-debt-column-head" aria-hidden="true">
-          <span>Chi tiết buổi</span>
-          <span>Slot</span>
-          <span>Tiền bóng</span>
+          <span>Khoản thu</span>
+          <span>SL</span>
+          <span>Số tiền</span>
         </div>
         <div className="client-debt-list">
           {debts.map((debt) => {

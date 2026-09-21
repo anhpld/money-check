@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EditCollectionPage({ params }: PageProps<"/collections/[id]">) {
   const { id } = await params;
-  const [users, session] = await Promise.all([
+  const [users, opponents, session] = await Promise.all([
     getPrisma().user.findMany({
       where: {
         OR: [
@@ -18,6 +18,7 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
       orderBy: { name: "asc" },
       select: { id: true, name: true, avatarKey: true },
     }),
+    getPrisma().opponent.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     getPrisma().footballSession.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -45,10 +46,15 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
         </div>
         <CollectionEditor
           users={users}
+          opponents={opponents}
           initial={{
             id: session.id,
+            kind: session.kind,
             title: session.title,
             playedAt: session.playedAt.toISOString().slice(0, 10),
+            opponentId: session.opponentId,
+            ourScore: session.ourScore,
+            opponentScore: session.opponentScore,
             note: session.note ?? "",
             totalAmount: session.totalAmount,
             chargeOptions: session.chargeOptions.map((option) => ({
@@ -78,6 +84,10 @@ export default async function EditCollectionPage({ params }: PageProps<"/collect
                 manualPaidAt: member.manualPaidAt?.toISOString() ?? null,
                 paidOptionIds: [...paidOptionIds],
                 note: member.note ?? "",
+                isFeeExempt: member.isFeeExempt,
+                exemptionReason: member.exemptionReason ?? "",
+                goals: member.goals,
+                assists: member.assists,
                 paidBreakdown: {
                   footballAmount: member.paymentItems.reduce((sum, item) => sum + item.footballAmount, member.manualFootballAmount ?? 0),
                   options: [...optionAmounts].map(([name, amount]) => ({ name, amount })),
