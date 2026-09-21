@@ -9,12 +9,12 @@ import type { CollectionChargeOption, CollectionEditorData, CollectionOpponent, 
 import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
 import { getPaidBreakdownTotal } from "@/lib/payment-totals";
 
-export function CollectionEditor({ users, opponents, initial }: { users: CollectionUser[]; opponents: CollectionOpponent[]; initial?: CollectionEditorData }) {
+export function CollectionEditor({ users, opponents, initial, initialKind = "MATCH" }: { users: CollectionUser[]; opponents: CollectionOpponent[]; initial?: CollectionEditorData; initialKind?: "MATCH" | "GENERAL" }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
-  const [kind, setKind] = useState<"MATCH" | "GENERAL">(initial?.kind ?? "MATCH");
+  const [kind, setKind] = useState<"MATCH" | "GENERAL">(initial?.kind ?? initialKind);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? "");
   const [opponentId, setOpponentId] = useState(initial?.opponentId ?? "");
@@ -86,7 +86,7 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
       return rank(left.id) - rank(right.id) || left.name.localeCompare(right.name, "vi");
     });
   const chargeableIds = selectedIds.filter((userId) => kind !== "MATCH" || !feeExemptions[userId]);
-  const totalSlots = chargeableIds.reduce((sum, userId) => sum + (slots[userId] ?? 1), 0);
+  const totalSlots = chargeableIds.reduce((sum, userId) => sum + (kind === "MATCH" ? slots[userId] ?? 1 : 1), 0);
   const amountPerSlot = totalSlots
     ? roundUpToOneThousand(totalAmount / totalSlots)
     : 0;
@@ -95,7 +95,7 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
 
   function distributeEvenly(ids: string[], total: number, slotValues = slots) {
     const splitIds = ids.filter((id) => kind !== "MATCH" || !feeExemptions[id]);
-    const distributed = allocateBySlots(total, splitIds.map((id) => ({ id, slots: slotValues[id] ?? 1 })));
+    const distributed = allocateBySlots(total, splitIds.map((id) => ({ id, slots: kind === "MATCH" ? slotValues[id] ?? 1 : 1 })));
     setAmounts((current) => Object.fromEntries(ids.map((id) => [id, kind === "MATCH" && feeExemptions[id] ? 0 : distributed[id] ?? current[id] ?? 0])));
   }
 
@@ -218,7 +218,7 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
         status,
         members: selectedIds.map((userId) => ({
           userId,
-          slots: slots[userId] ?? 1,
+          slots: kind === "MATCH" ? slots[userId] ?? 1 : 1,
           amountDue: kind === "MATCH" && feeExemptions[userId] ? 0 : amounts[userId] ?? 0,
           note: memberNotes[userId] ?? "",
           isFeeExempt: kind === "MATCH" && Boolean(feeExemptions[userId]),
@@ -299,7 +299,7 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
           <div><span>Loại</span><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong></div>
           <div><span>Khoản thu</span><strong>{title}</strong></div>
           <div><span>Ngày áp dụng</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(playedAt))}</strong></div>
-          <div><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><strong>{selectedIds.length} người · {totalSlots} phần tính tiền</strong></div>
+          <div><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><strong>{kind === "MATCH" ? `${selectedIds.length} người · ${totalSlots} phần tính tiền` : `${selectedIds.length} người`}</strong></div>
           <div><span>Tùy chọn chi phí</span><strong>{chargeOptions.length} tùy chọn</strong></div>
         </section>
 
@@ -319,12 +319,12 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
           <div className="list-header"><div><h2>Chi tiết từng người</h2><p>Số tiền cuối cùng do admin xác nhận</p></div></div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</th><th>Slot</th><th>Đã thanh toán</th><th>Phải đóng</th></tr></thead>
+              <thead><tr><th>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</th>{kind === "MATCH" ? <th>Slot</th> : null}<th>Đã thanh toán</th><th>Phải đóng</th></tr></thead>
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
                     <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{kind === "MATCH" ? <small>{feeExemptions[user.id] ? "Miễn đóng" : `${goals[user.id] ?? 0} bàn · ${assists[user.id] ?? 0} kiến tạo`}</small> : memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
-                    <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td>
+                    {kind === "MATCH" ? <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td> : null}
                     <td><div className="preview-paid-value"><strong>{formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
                   </tr>
@@ -410,14 +410,14 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
       {selectedIds.length ? (
         <section className="panel allocation-panel">
           <div className="allocation-heading">
-            <div><p className="eyebrow">PHÂN BỔ CHI PHÍ</p><h2>Chỉnh slot và số tiền</h2><p>{totalSlots} slot · <strong>{formatVnd(amountPerSlot)}</strong>/slot</p></div>
+            <div><p className="eyebrow">PHÂN BỔ CHI PHÍ</p><h2>{kind === "MATCH" ? "Chỉnh slot và số tiền" : "Phân bổ số tiền"}</h2><p>{kind === "MATCH" ? <>{totalSlots} slot · <strong>{formatVnd(amountPerSlot)}</strong>/slot</> : <>{selectedIds.length} người · <strong>{formatVnd(amountPerSlot)}</strong>/người</>}</p></div>
             <button className="recalculate-button" type="button" onClick={() => distributeEvenly(selectedIds, totalAmount)}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
               Chia đều lại
             </button>
           </div>
           <div className="allocation-list">
-            <div className="allocation-columns" aria-hidden="true"><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><span>Trạng thái</span><span>Đã trả</span><span>Số slot</span><span>Phải đóng</span></div>
+            <div className={`allocation-columns ${kind === "GENERAL" ? "without-slots" : ""}`} aria-hidden="true"><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><span>Trạng thái</span><span>Đã trả</span>{kind === "MATCH" ? <span>Số slot</span> : null}<span>Phải đóng</span></div>
             {selectedUsers.map((user, index) => {
               const member = membersByUser.get(user.id);
               const amountPaid = paidAmounts[user.id] ?? 0;
@@ -426,7 +426,7 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
               const totalPaid = getPaidBreakdownTotal(paidBreakdown);
               const paymentState = amountPaid >= amountDue ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
               return (
-              <div className={`allocation-row ${paymentState}`} key={user.id}>
+              <div className={`allocation-row ${paymentState} ${kind === "GENERAL" ? "without-slots" : ""}`} key={user.id}>
                 <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><div className="allocation-user-meta"><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small><button type="button" onClick={() => setExpandedNotes((current) => ({ ...current, [user.id]: !current[user.id] }))}>{expandedNotes[user.id] ? "Đóng ghi chú" : memberNotes[user.id] ? "Ghi chú" : "Ghi chú +"}</button></div></div></div>
                 <div className={`allocation-status ${paymentState}`}>
                   <small className="allocation-cell-label">Trạng thái</small>
@@ -456,14 +456,14 @@ export function CollectionEditor({ users, opponents, initial }: { users: Collect
                   ) : null}
                   {totalPaid <= 0 ? <span className="allocation-paid-empty">—</span> : null}
                 </div>
-                <div className="allocation-slot-cell">
+                {kind === "MATCH" ? <div className="allocation-slot-cell">
                   <small className="allocation-cell-label">Số slot</small>
                   <div className="slot-stepper" aria-label={`Số slot của ${user.name}`}>
                     <button type="button" aria-label={`Giảm slot của ${user.name}`} disabled={(slots[user.id] ?? 1) <= 1} onClick={() => changeSlots(user.id, -1)}>−</button>
                     <span><strong>{slots[user.id] ?? 1}</strong><small>slot</small></span>
                     <button type="button" aria-label={`Tăng slot của ${user.name}`} onClick={() => changeSlots(user.id, 1)}>+</button>
                   </div>
-                </div>
+                </div> : null}
                 <div className="allocation-due-cell">
                   <small className="allocation-cell-label">Phải đóng</small>
                   <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" disabled={kind === "MATCH" && feeExemptions[user.id]} value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>

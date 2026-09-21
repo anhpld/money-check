@@ -13,10 +13,10 @@ Hệ thống có hai khu vực:
 
 Luồng chính:
 
-1. Mọi nghiệp vụ nằm trong `FootballSession` (khoản thu). `kind = MATCH` là khoản thu của một trận; `kind = GENERAL` là áo, quỹ hoặc nội dung khác.
+1. Khi admin bấm tạo khoản thu, UI yêu cầu chọn `Trận đấu` hoặc `Khoản thu khác` trước rồi mới mở form chi tiết. Mọi nghiệp vụ sau đó nằm trong `FootballSession`: `kind = MATCH` là khoản thu của một trận; `kind = GENERAL` là áo, quỹ hoặc nội dung khác.
 2. Với khoản `MATCH`, mỗi `SessionMember` được tính một lần tham gia và có thể lưu bàn thắng, kiến tạo, miễn đóng. Người miễn đóng vẫn tham gia nhưng nghĩa vụ tài chính bằng 0.
 3. Thành viên của khoản `GENERAL` chỉ là người cần đóng tiền và không làm tăng thống kê số trận.
-4. Tiền được chia theo tổng số suất (`slots`) và làm tròn lên 1.000 VND, nhưng admin có thể sửa số tiền từng người.
+4. Với `MATCH`, tiền được chia theo tổng số suất (`slots`) và làm tròn lên 1.000 VND. Với `GENERAL`, mỗi người luôn có một phần tính tiền và UI không hiển thị điều khiển slot. Admin vẫn có thể sửa số tiền từng người.
 5. Khoản thu `DRAFT` chưa hiển thị cho client. Khi `PUBLISHED`, thành viên có thể chọn nhiều khoản và thanh toán chung một QR.
 6. Server snapshot các khoản vào `PaymentRequest` có code `PAYXXXXXXXX`; webhook đối chiếu số tiền và cộng dồn lịch sử đã trả.
 7. Tăng nghĩa vụ sau khi đã đóng chỉ tạo phần chênh còn thiếu; giảm thấp hơn số đã đóng được coi là hoàn tất và không tạo số dư âm.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell } from "@/app/components/admin-shell";
+import { CreateCollectionButton } from "@/app/collections/create-collection-button";
 import { getPrisma } from "@/lib/prisma";
 import { formatVnd } from "@/lib/money";
 
@@ -29,10 +30,7 @@ export default async function CollectionsPage() {
             <h1>Các khoản thu</h1>
             <p>Tiền trận, áo đội, quỹ và mọi khoản thu khác dùng chung một luồng thanh toán.</p>
           </div>
-          <Link className="primary-button top-add-button" href="/admin/collections/new">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            Tạo khoản thu
-          </Link>
+          <CreateCollectionButton />
         </div>
 
         {sessions.length ? (
@@ -68,7 +66,7 @@ export default async function CollectionsPage() {
             <span className="empty-illustration"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 19h40v32H12zM20 13v12M44 13v12M12 29h40M23 39h.01M32 39h.01M41 39h.01" /></svg></span>
             <h2>Chưa có khoản thu nào</h2>
             <p>Tạo khoản thu, chọn người cần đóng và nhập số tiền.</p>
-            <Link className="primary-button top-add-button" href="/admin/collections/new">Tạo khoản thu đầu tiên</Link>
+            <CreateCollectionButton label="Tạo khoản thu đầu tiên" />
           </div>
         )}
       </div>

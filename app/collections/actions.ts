@@ -287,7 +287,7 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
             members: {
               create: input.members.map((member) => ({
                 userId: member.userId,
-                slots: member.slots,
+                slots: input.kind === "MATCH" ? member.slots : 1,
                 amountDue: input.kind === "MATCH" && member.isFeeExempt ? 0 : member.amountDue,
                 note: member.note.trim() || null,
                 isFeeExempt: input.kind === "MATCH" && member.isFeeExempt,
@@ -383,7 +383,7 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
         await transaction.sessionMember.update({
           where: { id: current.id },
           data: {
-            slots: incoming.slots,
+            slots: input.kind === "MATCH" ? incoming.slots : 1,
             amountDue: input.kind === "MATCH" && incoming.isFeeExempt ? 0 : incoming.amountDue,
             note: incoming.note.trim() || null,
             isFeeExempt: input.kind === "MATCH" && incoming.isFeeExempt,
@@ -400,7 +400,7 @@ export async function saveCollection(input: SaveCollectionInput): Promise<Collec
           data: {
             sessionId: existing.id,
             userId: member.userId,
-            slots: member.slots,
+            slots: input.kind === "MATCH" ? member.slots : 1,
             amountDue: input.kind === "MATCH" && member.isFeeExempt ? 0 : member.amountDue,
             note: member.note.trim() || null,
             isFeeExempt: input.kind === "MATCH" && member.isFeeExempt,

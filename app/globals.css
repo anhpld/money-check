@@ -304,6 +304,21 @@ td code { border-radius: 5px; background: #f4f6f5; padding: 4px 7px; color: #697
 .dialog-heading h2 { margin: 0 0 7px; font-family: var(--font-geist-sans), sans-serif; font-size: 21px; letter-spacing: -.5px; }
 .dialog-heading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .dialog-heading p strong { color: var(--ink); }
+.dialog-card.collection-kind-dialog { position: relative; width: min(100%, 520px); max-width: 520px; }
+.collection-kind-dialog-close { position: absolute; top: 17px; right: 17px; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #77817d; cursor: pointer; font-size: 20px; line-height: 1; }
+.collection-kind-dialog-close:hover { border-color: #cbd5d1; background: #f5f7f6; color: var(--ink); }
+.collection-kind-dialog .dialog-heading { margin: 0 40px 22px 0; }
+.collection-kind-options { display: grid; gap: 10px; }
+.collection-kind-options > a { display: grid; min-height: 82px; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; border: 1px solid #dce4e0; border-radius: 12px; padding: 14px; color: var(--ink); transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.collection-kind-options > a:hover { border-color: #98bcae; background: #f7fbf9; transform: translateY(-1px); }
+.collection-kind-option-icon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 13px; }
+.collection-kind-option-icon.match { background: var(--brand-soft); color: var(--brand); }
+.collection-kind-option-icon.general { background: #edf2fb; color: #426aa3; }
+.collection-kind-option-icon svg { width: 25px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.collection-kind-options > a > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.collection-kind-options strong { font-size: 15px; }
+.collection-kind-options small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.collection-kind-options b { color: #8a9691; font-size: 25px; font-weight: 400; }
 .dialog-form { display: flex; flex-direction: column; gap: 24px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 28px; }
 .dialog-form .dialog-actions { margin-top: 0; }
@@ -506,6 +521,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .recalculate-button svg { width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .allocation-list { display: grid; gap: 14px; }
 .allocation-columns, .allocation-row { display: grid; grid-template-columns: minmax(180px, 1fr) 135px 165px 110px 166px; align-items: center; gap: 15px; }
+.allocation-columns.without-slots, .allocation-row.without-slots { grid-template-columns: minmax(180px, 1fr) 135px 165px 166px; }
 .allocation-columns { border: 1px solid var(--line); border-radius: 10px; background: #f5f8f6; padding: 12px 14px; color: #747d7a; font-size: 11px; font-weight: 750; letter-spacing: .35px; text-transform: uppercase; }
 .allocation-row { min-height: 78px; border: 1px solid #c2cec9; border-left-width: 4px; border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 3px 12px #173c2f08; transition: box-shadow .16s ease, transform .16s ease; }
 .allocation-row.unpaid { border-left-color: #96a29e; }
@@ -787,7 +803,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .content-grid { grid-template-columns: 1fr; }
   .session-grid { grid-template-columns: 1fr; }
   .allocation-columns { display: none; }
-  .allocation-row { grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr); gap: 14px; padding: 16px 14px; }
+  .allocation-row, .allocation-row.without-slots { grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr); gap: 14px; padding: 16px 14px; }
   .allocation-user { grid-column: 1 / -1; border-bottom: 1px solid #edf0ee; padding-bottom: 12px; }
   .allocation-status, .allocation-paid { min-height: 76px; border-radius: 9px; background: #f8faf9; padding: 9px 11px; }
   .allocation-status { grid-column: 1; }
@@ -957,7 +973,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .editor-panel, .allocation-panel { padding: 16px; }
   .allocation-heading { align-items: flex-start; flex-direction: column; }
   .allocation-total { flex-wrap: wrap; justify-content: flex-start; }
-  .allocation-row { grid-template-columns: minmax(0, 1fr) minmax(125px, .8fr); gap: 11px; padding: 13px 12px; }
+  .allocation-row, .allocation-row.without-slots { grid-template-columns: minmax(0, 1fr) minmax(125px, .8fr); gap: 11px; padding: 13px 12px; }
   .allocation-user { padding-bottom: 10px; }
   .allocation-paid { padding: 8px 10px; }
   .allocation-note-cell { padding-top: 9px; }
