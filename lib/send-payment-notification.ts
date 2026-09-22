@@ -18,7 +18,7 @@ type PaymentNotification = {
 export type PaymentNotificationResult = MessengerMessageResult;
 
 function formatVnd(amount: number) {
-  return `${new Intl.NumberFormat("vi-VN").format(amount)}`;
+  return `${new Intl.NumberFormat("vi-VN").format(amount)}₫`;
 }
 1
 function formatDayMonth(date: Date) {
