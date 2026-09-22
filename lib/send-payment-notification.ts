@@ -18,9 +18,9 @@ type PaymentNotification = {
 export type PaymentNotificationResult = MessengerMessageResult;
 
 function formatVnd(amount: number) {
-  return `${new Intl.NumberFormat("vi-VN").format(amount)} ₫`;
+  return `${new Intl.NumberFormat("vi-VN").format(amount)}`;
 }
-
+1
 function formatDayMonth(date: Date) {
   const day = String(date.getUTCDate()).padStart(2, "0");
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -30,7 +30,7 @@ function formatDayMonth(date: Date) {
 function buildMessage(notification: PaymentNotification) {
   const sessionDescriptions = notification.items.map((item) => {
     const details = [
-      `khoản chính ${formatVnd(item.footballAmount)}`,
+      `${formatVnd(item.footballAmount)}`,
       ...item.options.map((option) => `${option.name} ${formatVnd(option.amount)}`),
     ];
     return `${item.title} ${formatDayMonth(item.playedAt)} - ${details.join(", ")}`;
@@ -43,7 +43,7 @@ function buildMessage(notification: PaymentNotification) {
 
   if (sessionDescriptions.length === 1) return `${heading} cho ${sessionDescriptions[0]}.${mismatch}`;
 
-  return `${heading} cho:\n${sessionDescriptions.map((description) => `- ${description}`).join("\n")}${mismatch ? `\n${mismatch.trim()}` : ""}`;
+  return `${heading}:\n${sessionDescriptions.map((description) => `- ${description}`).join("\n")}${mismatch ? `\n${mismatch.trim()}` : ""}`;
 }
 
 export async function sendPaymentReceivedNotification(
