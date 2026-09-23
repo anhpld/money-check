@@ -435,22 +435,22 @@ td code { border-radius: 6px; background: #f4f6f5; padding: 4px 8px; color: #475
 .session-card { min-width: 0; padding: 18px; transition: .2s ease; }
 .session-card:hover { border-color: #d3dcd8; box-shadow: 0 10px 30px #1b362d0d; transform: translateY(-2px); }
 .session-card-top, .session-card-bottom, .session-money { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.session-status { display: inline-flex; width: max-content; align-items: center; gap: 7px; border-radius: 20px; padding: 6px 10px; font-size: 9px; font-weight: 750; }
+.session-status { display: inline-flex; width: max-content; align-items: center; gap: 7px; border-radius: 20px; padding: 6px 10px; font-size: 11px; font-weight: 750; }
 .session-status i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .session-status.draft { background: #f3f1eb; color: #8a7040; }
 .session-status.published { background: var(--brand-soft); color: var(--brand); }
 .session-status.closed { background: #eef0ef; color: #69736f; }
-.session-date { color: #46514d; font-size: 12px; font-weight: 750; letter-spacing: -.1px; }
-.session-card h2 { overflow: hidden; margin: 15px 0 6px; font-family: var(--font-geist-sans), sans-serif; font-size: 16px; letter-spacing: -.4px; text-overflow: ellipsis; white-space: nowrap; }
-.session-location { overflow: hidden; margin: 0 0 16px; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.session-date { color: #46514d; font-size: 13px; font-weight: 750; letter-spacing: -.1px; }
+.session-card h2 { overflow: hidden; margin: 15px 0 6px; font-family: var(--font-geist-sans), sans-serif; font-size: 19px; letter-spacing: -.4px; text-overflow: ellipsis; white-space: nowrap; }
+.session-location { overflow: hidden; margin: 0 0 16px; color: var(--muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .session-money { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; gap: 8px; }
-.session-money span { display: flex; min-width: 0; flex-direction: column; gap: 5px; border-radius: 8px; background: #f7f9f8; padding: 9px 10px; color: var(--muted); font-size: 8px; text-transform: uppercase; }
-.session-money strong { overflow: hidden; color: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 11px; text-overflow: ellipsis; text-transform: none; white-space: nowrap; }
-.session-progress-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 9px; }
-.session-progress-heading strong { color: var(--brand); font-size: 10px; }
+.session-money span { display: flex; min-width: 0; flex-direction: column; gap: 5px; border-radius: 8px; background: #f7f9f8; padding: 10px 11px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.session-money strong { overflow: hidden; color: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 14px; text-overflow: ellipsis; text-transform: none; white-space: nowrap; }
+.session-progress-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 12px; }
+.session-progress-heading strong { color: var(--brand); font-size: 12px; }
 .session-progress { overflow: hidden; height: 5px; margin: 7px 0 14px; border-radius: 5px; background: #edf0ee; }
 .session-progress span { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
-.session-card-bottom { color: var(--muted); font-size: 10px; }
+.session-card-bottom { color: var(--muted); font-size: 12px; }
 .session-card-bottom a { display: inline-flex; align-items: center; gap: 5px; color: var(--brand); font-weight: 750; }
 .session-card-bottom svg { width: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 .collections-empty { display: flex; min-height: 390px; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
@@ -1009,13 +1009,13 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   .mobile-user-action.delete { border-color: #efd7d2; background: #fff8f6; color: #ae493b; }
   .collection-page-heading { align-items: flex-start; gap: 20px; }
   .collection-page-heading .top-add-button { min-width: 0; padding: 0 13px; }
-  .session-status { font-size: 10px; }
-  .session-date { font-size: 13px; }
-  .session-card h2 { font-size: 17px; }
-  .session-location, .session-card-bottom { font-size: 11px; }
-  .session-money span { font-size: 9px; }
-  .session-money strong { font-size: 12px; }
-  .session-progress-heading { font-size: 10px; }
+  .session-status { font-size: 12px; }
+  .session-date { font-size: 14px; }
+  .session-card h2 { font-size: 20px; }
+  .session-location, .session-card-bottom { font-size: 13px; }
+  .session-money span { font-size: 11px; }
+  .session-money strong { font-size: 15px; }
+  .session-progress-heading { font-size: 12px; }
   .transaction-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .transaction-summary { gap: 8px; margin-bottom: 14px; }
   .transaction-summary > div { min-height: 66px; gap: 4px; padding: 10px 13px; }
