@@ -23,8 +23,8 @@ export type DebtReminderDeliveryResult =
 
 function debtDescription(matchCount: number, generalCount: number) {
   const parts: string[] = [];
-  if (matchCount) parts.push(`${matchCount} trận đấu`);
-  if (generalCount) parts.push(`${generalCount} khoản thu khác`);
+  if (matchCount) parts.push(`${matchCount} trận`);
+  if (generalCount) parts.push(`${generalCount} khoản`);
   return parts.join(" và ");
 }
 
