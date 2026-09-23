@@ -275,13 +275,23 @@ export async function syncUsersFromJson(
 
 export async function sendTestMessengerMessage(
   _previousState: SendDebtReminderResult,
+  formData?: FormData,
 ): Promise<SendDebtReminderResult> {
   void _previousState;
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
 
-  const result = await sendConfiguredMessengerMessage("test");
+  const rawChatUrl = formData?.get("chatUrl");
+  const testChatUrl = typeof rawChatUrl === "string" ? rawChatUrl.trim() : "";
+  if (!testChatUrl) {
+    return { status: "error", message: "Vui lòng nhập URL Messenger để gửi test." };
+  }
+
+  const rawMessage = formData?.get("message");
+  const message = typeof rawMessage === "string" && rawMessage.trim() ? rawMessage.trim() : "test";
+
+  const result = await sendConfiguredMessengerMessage(message, testChatUrl);
   if (result.status === "sent") {
-    return { status: "success", message: "Đã gửi message test." };
+    return { status: "success", message: `Đã gửi message test: “${message.slice(0, 40)}${message.length > 40 ? "..." : ""}”.` };
   }
   if (result.status === "skipped") {
     return {
@@ -290,7 +300,7 @@ export async function sendTestMessengerMessage(
     };
   }
   console.error("Không thể gửi message test:", result.error);
-  return { status: "error", message: "Không thể gửi message test. Vui lòng kiểm tra Messenger API." };
+  return { status: "error", message: `Không thể gửi message test: ${result.error || "Vui lòng kiểm tra Messenger API."}` };
 }
 
 export async function sendDebtReminder(

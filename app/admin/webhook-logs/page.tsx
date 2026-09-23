@@ -30,8 +30,8 @@ export default async function WebhookLogsPage({ searchParams }: { searchParams: 
     skip: (currentPage - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });
-  const dateTime = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "medium" });
-  const mobileDateTime = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const dateTime = new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" });
+  const mobileDateTime = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
 
   return (
     <AdminShell active="webhooks">

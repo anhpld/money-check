@@ -16,7 +16,7 @@ export default async function WebhookLogDetailPage({ params }: { params: Promise
   const { id } = await params;
   const log = await getPrisma().webhookLog.findUnique({ where: { id } });
   if (!log) notFound();
-  const dateTime = new Intl.DateTimeFormat("vi-VN", { dateStyle: "full", timeStyle: "medium" });
+  const dateTime = new Intl.DateTimeFormat("vi-VN", { dateStyle: "full", timeStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" });
 
   return (
     <AdminShell active="webhooks">

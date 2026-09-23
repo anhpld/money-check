@@ -61,7 +61,7 @@ export async function sendDebtReminderMessage(): Promise<DebtReminderDeliveryRes
     }
     const message = [...groups.values()]
       .sort((left, right) => left.matchCount - right.matchCount || left.generalCount - right.generalCount)
-      .map((group) => `${group.names.sort((left, right) => left.localeCompare(right, "vi")).join(", ")} còn nợ ${debtDescription(group.matchCount, group.generalCount)}.`)
+      .map((group) => `${group.names.sort((left, right) => left.localeCompare(right, "vi")).map((name) => `@[${name}]`).join(", ")} còn nợ ${debtDescription(group.matchCount, group.generalCount)}.`)
       .join("\n");
 
     const result = await sendConfiguredMessengerMessage(message);

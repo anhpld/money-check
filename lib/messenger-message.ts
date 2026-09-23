@@ -6,7 +6,10 @@ export type MessengerMessageResult =
   | { status: "skipped"; reason: "disabled" | "incomplete" }
   | { status: "failed"; error: string };
 
-export async function sendConfiguredMessengerMessage(message: string): Promise<MessengerMessageResult> {
+export async function sendConfiguredMessengerMessage(
+  message: string,
+  overrideChatUrl?: string,
+): Promise<MessengerMessageResult> {
   try {
     const settings = await getPrisma().setting.findMany({
       where: {
@@ -15,15 +18,19 @@ export async function sendConfiguredMessengerMessage(message: string): Promise<M
       },
       select: { key: true, value: true, enabled: true },
     });
-    const settingsByKey = new Map(settings.map((setting) => [setting.key, setting]));
+    const settingsByKey = new Map<string, { key: string; value: string; enabled: boolean }>(
+      settings.map((setting: { key: string; value: string; enabled: boolean }) => [setting.key, setting]),
+    );
     const apiUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiUrl);
     const apiKey = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiKey);
     const chatUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.chatUrl);
 
-    if (!apiUrl?.value || !apiKey?.value || !chatUrl?.value) {
+    const targetChatUrl = overrideChatUrl?.trim() || chatUrl?.value;
+
+    if (!apiUrl?.value || !apiKey?.value || !targetChatUrl) {
       return { status: "skipped", reason: "incomplete" };
     }
-    if (![apiUrl, apiKey, chatUrl].every((setting) => setting.enabled)) {
+    if (!apiUrl.enabled || !apiKey.enabled || (!overrideChatUrl && !chatUrl?.enabled)) {
       return { status: "skipped", reason: "disabled" };
     }
 
@@ -33,7 +40,7 @@ export async function sendConfiguredMessengerMessage(message: string): Promise<M
         "Content-Type": "application/json",
         "X-API-Key": apiKey.value,
       },
-      body: JSON.stringify({ chatUrl: chatUrl.value, message }),
+      body: JSON.stringify({ chatUrl: targetChatUrl, message }),
       cache: "no-store",
       signal: AbortSignal.timeout(45_000),
     });

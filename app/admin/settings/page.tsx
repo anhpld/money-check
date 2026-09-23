@@ -54,8 +54,16 @@ export default async function SettingsPage() {
           <div><p className="eyebrow">CÀI ĐẶT HỆ THỐNG</p><h1>Cài đặt</h1><p>Quản lý dữ liệu và các thiết lập chung của ứng dụng.</p></div>
         </div>
 
+        <div className="settings-section-divider">
+          <h2>Tích hợp Messenger & Tự động hóa</h2>
+          <p>Cấu hình bot gửi thông báo, thử nghiệm tin nhắn tag tên và lịch nhắc nợ tự động.</p>
+        </div>
+
         <section className="panel settings-integration-panel">
           <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
+        </section>
+
+        <section className="panel settings-messenger-actions-panel">
           <MessengerActions configured={messengerConfigured} />
         </section>
 
@@ -67,6 +75,11 @@ export default async function SettingsPage() {
           nextRunAt={nextRunAt}
           recentRuns={reminderRuns.map((run) => ({ ...run, scheduledFor: run.scheduledFor.toISOString() }))}
         />
+
+        <div className="settings-section-divider">
+          <h2>Hệ thống & Dữ liệu người dùng</h2>
+          <p>Kiểm tra kết nối ứng dụng Android và đồng bộ danh sách thành viên từ JSON.</p>
+        </div>
 
         <section className="panel settings-device-status-panel">
           <div>
@@ -80,6 +93,11 @@ export default async function SettingsPage() {
         <section className="panel settings-user-sync-panel">
           <UserSyncForm />
         </section>
+
+        <div className="settings-section-divider settings-section-divider-danger">
+          <h2>Bảo trì & Quản lý dữ liệu</h2>
+          <p>Dọn dẹp dữ liệu giao dịch hoặc khôi phục cài đặt gốc của hệ thống.</p>
+        </div>
 
         <section className="panel settings-maintenance-zone">
           <div>

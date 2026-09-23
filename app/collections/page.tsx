@@ -45,7 +45,7 @@ export default async function CollectionsPage() {
                 <article className="session-card panel" key={session.id}>
                   <div className="session-card-top">
                     <span className={`session-status ${session.status.toLowerCase()}`}><i />{session.status === "DRAFT" ? "Bản nháp" : session.status === "PUBLISHED" ? "Đã public" : "Đã đóng"}</span>
-                    <span className="session-date">{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(session.playedAt)}</span>
+                    <span className="session-date">{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(session.playedAt)}</span>
                   </div>
                   <span className="collection-kind">{session.kind === "MATCH" ? `Trận đấu · ${session.opponent?.name ?? "Chưa cập nhật đối thủ"}` : "Khoản thu khác"}</span>
                   <h2>{session.title}</h2>

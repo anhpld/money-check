@@ -10,6 +10,7 @@ function formatDateTime(value: string | null | undefined) {
   return new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "medium",
+    timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(value));
 }
 

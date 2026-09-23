@@ -20,11 +20,12 @@ export type PaymentNotificationResult = MessengerMessageResult;
 function formatVnd(amount: number) {
   return `${new Intl.NumberFormat("vi-VN").format(amount)}₫`;
 }
-1
 function formatDayMonth(date: Date) {
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${day}/${month}`;
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(date);
 }
 
 function buildMessage(notification: PaymentNotification) {
@@ -35,7 +36,7 @@ function buildMessage(notification: PaymentNotification) {
     ];
     return `${item.title} ${formatDayMonth(item.playedAt)} - ${details.join(", ")}`;
   });
-  const heading = `Đã nhận được ${formatVnd(notification.amount)} từ ${notification.userName}`;
+  const heading = `Đã nhận được ${formatVnd(notification.amount)} từ @[${notification.userName}]`;
 
   const mismatch = notification.status === "UNDERPAID" || notification.status === "OVERPAID"
     ? ` Chuyển sai số tiền: cần ${formatVnd(notification.expectedAmount)}, đã nhận ${formatVnd(notification.amount)}.`

@@ -212,7 +212,7 @@ export function PaymentDialog({ userId, debts }: { userId: string; debts: Client
           {debts.map((debt) => {
             return (
               <article className="card card-border client-debt-card" key={debt.sessionMemberId}>
-                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</strong><span>TH{new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "UTC" }).format(new Date(debt.playedAt))}</span></div>
+                <div className="debt-date"><strong>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(debt.playedAt))}</strong><span>TH{new Intl.DateTimeFormat("vi-VN", { month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(debt.playedAt))}</span></div>
                 <div className="debt-info">
                   <h2>{debt.title}</h2>
                   {debt.sessionNote ? <p>{debt.sessionNote}</p> : null}

@@ -302,7 +302,7 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
         <section className="preview-summary panel">
           <div><span>Loại</span><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong></div>
           <div><span>Khoản thu</span><strong>{title}</strong></div>
-          <div><span>Ngày áp dụng</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(playedAt))}</strong></div>
+          <div><span>Ngày áp dụng</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(playedAt))}</strong></div>
           <div><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><strong>{kind === "MATCH" ? `${selectedIds.length} người · ${totalSlots} phần tính tiền` : `${selectedIds.length} người`}</strong></div>
           <div><span>Tùy chọn chi phí</span><strong>{chargeOptions.length} tùy chọn</strong></div>
         </section>

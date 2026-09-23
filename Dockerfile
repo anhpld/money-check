@@ -45,6 +45,9 @@ FROM node:24.16.0-alpine AS runner
 
 WORKDIR /app
 
+RUN apk add --no-cache tzdata
+
+ENV TZ="Asia/Ho_Chi_Minh"
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
