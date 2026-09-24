@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { MobileAdminMenu } from "@/app/components/mobile-admin-menu";
 
-type AdminSection = "users" | "collections" | "statistics" | "transactions" | "webhooks" | "settings";
+type AdminSection = "overview" | "users" | "collections" | "statistics" | "transactions" | "webhooks" | "settings";
 
 function BrandMark() {
   return (
@@ -39,8 +39,8 @@ export function AdminShell({ active, children }: { active: AdminSection; childre
 
         <nav className="main-nav" aria-label="Điều hướng quản trị">
           <p>QUẢN LÝ</p>
-          <span className="nav-disabled" aria-disabled="true"><SidebarIcon type="grid" />Tổng quan<span className="soon">Chưa dùng</span></span>
-          <Link href="/admin" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
+          <Link href="/admin" className={active === "overview" ? "active" : undefined}><SidebarIcon type="grid" />Tổng quan</Link>
+          <Link href="/admin/users" className={active === "users" ? "active" : undefined}><SidebarIcon type="users" />Người dùng</Link>
           <Link href="/admin/collections" className={active === "collections" ? "active" : undefined}><SidebarIcon type="wallet" />Khoản thu</Link>
           <Link href="/admin/statistics" className={active === "statistics" ? "active" : undefined}><SidebarIcon type="grid" />Thống kê</Link>
           <Link href="/admin/transactions" className={active === "transactions" ? "active" : undefined}><SidebarIcon type="swap" />Giao dịch</Link>
