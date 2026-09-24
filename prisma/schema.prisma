@@ -12,8 +12,21 @@ model User {
   name            String
   avatarKey       String?
   isActive        Boolean          @default(true)
+  personaPrompt   String?
   sessionMembers  SessionMember[]
   paymentRequests PaymentRequest[]
+  memories        UserMemory[]
+}
+
+model UserMemory {
+  id         String   @id @default(uuid())
+  userId     String
+  fact       String
+  sourceText String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Opponent {

@@ -137,3 +137,64 @@ export async function setUserActive(id: string, isActive: boolean): Promise<User
     return { status: "error", message: "Không thể cập nhật trạng thái người dùng. Vui lòng thử lại." };
   }
 }
+
+export async function updateUserPersona(
+  userId: string,
+  personaPrompt: string,
+): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!userId) return { status: "error", message: "Không tìm thấy người dùng." };
+
+  try {
+    await getPrisma().user.update({
+      where: { id: userId },
+      data: { personaPrompt: personaPrompt.trim() || null },
+    });
+    revalidatePath("/admin/users");
+    return { status: "success", message: "Đã cập nhật tính cách AI cho người dùng." };
+  } catch (error) {
+    console.error("Lỗi cập nhật persona:", error);
+    return { status: "error", message: "Không thể lưu tính cách. Vui lòng thử lại." };
+  }
+}
+
+export async function addUserMemory(
+  userId: string,
+  fact: string,
+): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!userId || !fact.trim()) return { status: "error", message: "Vui lòng nhập nội dung ghi chú." };
+
+  try {
+    await getPrisma().userMemory.create({
+      data: {
+        userId,
+        fact: fact.trim(),
+        sourceText: "Thêm thủ công bởi Admin",
+      },
+    });
+    revalidatePath("/admin/users");
+    return { status: "success", message: "Đã thêm ký ức mới cho người dùng." };
+  } catch (error) {
+    console.error("Lỗi thêm ký ức:", error);
+    return { status: "error", message: "Không thể thêm ký ức. Vui lòng thử lại." };
+  }
+}
+
+export async function deleteUserMemory(
+  memoryId: string,
+): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!memoryId) return { status: "error", message: "Không tìm thấy ký ức cần xóa." };
+
+  try {
+    await getPrisma().userMemory.delete({
+      where: { id: memoryId },
+    });
+    revalidatePath("/admin/users");
+    return { status: "success", message: "Đã xóa ký ức." };
+  } catch (error) {
+    console.error("Lỗi xóa ký ức:", error);
+    return { status: "error", message: "Không thể xóa ký ức. Vui lòng thử lại." };
+  }
+}

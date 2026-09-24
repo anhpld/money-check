@@ -5,13 +5,28 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createUser, deleteUser, setUserActive, updateUser, type UserActionResult } from "@/app/actions";
 import { UserAvatar } from "@/app/components/user-avatar";
+import { UserAiModal } from "@/app/components/user-ai-modal";
 
-export type UserItem = { id: string; name: string; avatarKey: string | null; isActive: boolean };
+export type UserMemoryItem = {
+  id: string;
+  fact: string;
+  createdAt: Date | string;
+};
+
+export type UserItem = {
+  id: string;
+  name: string;
+  avatarKey: string | null;
+  isActive: boolean;
+  personaPrompt?: string | null;
+  memories?: UserMemoryItem[];
+};
 
 type DialogState =
   | { type: "add" }
   | { type: "edit"; user: UserItem }
   | { type: "delete"; user: UserItem }
+  | { type: "ai-persona"; user: UserItem }
   | null;
 
 export function UsersManager({ users, databaseError }: { users: UserItem[]; databaseError: boolean }) {
@@ -146,6 +161,15 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
                       </button>
                     </td>
                     <td className="actions-cell">
+                      <button
+                        className="icon-button ai"
+                        type="button"
+                        aria-label={`Hồ sơ AI & Ký ức của ${user.name}`}
+                        title="Hồ sơ AI & Ký ức"
+                        onClick={() => openDialog({ type: "ai-persona", user })}
+                      >
+                        <span style={{ fontSize: "16px" }} role="img" aria-hidden="true">🧠</span>
+                      </button>
                       <button className="icon-button edit" type="button" aria-label={`Sửa ${user.name}`} onClick={() => openDialog({ type: "edit", user })}>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 11-11a2 2 0 0 0-3-3l-11 11L4 20Z" /></svg>
                       </button>
@@ -176,6 +200,7 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
                     {user.isActive ? "Active" : "Inactive"}
                   </button>
                   <div className="mobile-user-actions">
+                    <button className="mobile-user-action ai" type="button" onClick={() => openDialog({ type: "ai-persona", user })}>Hồ sơ AI</button>
                     <button className="mobile-user-action edit" type="button" onClick={() => openDialog({ type: "edit", user })}>Sửa</button>
                     <button className="mobile-user-action delete" type="button" onClick={() => openDialog({ type: "delete", user })}>Xóa</button>
                   </div>
@@ -200,7 +225,15 @@ export function UsersManager({ users, databaseError }: { users: UserItem[]; data
         </div>
       ) : null}
 
-      {dialog ? (
+      {dialog?.type === "ai-persona" ? (
+        <UserAiModal
+          user={dialog.user}
+          onClose={() => {
+            closeDialog();
+            router.refresh();
+          }}
+        />
+      ) : dialog ? (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !isPending) closeDialog();
         }}>
