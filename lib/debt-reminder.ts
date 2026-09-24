@@ -1,5 +1,10 @@
 import { getPrisma } from "@/lib/prisma";
 import { sendConfiguredMessengerMessage } from "@/lib/messenger-message";
+import {
+  DEFAULT_LLM_SETTINGS,
+  LLM_SETTING_KEYS,
+  LLM_SETTING_TYPE,
+} from "@/lib/app-settings";
 
 export const DEBT_REMINDER_SCHEDULE_ID = "default";
 export const DEBT_REMINDER_TIMEZONE = "Asia/Ho_Chi_Minh";
@@ -59,19 +64,86 @@ export async function sendDebtReminderMessage(): Promise<DebtReminderDeliveryRes
       group.names.push(debt.name);
       groups.set(key, group);
     }
-    const message = [...groups.values()]
+    const deterministicMessage = [...groups.values()]
       .sort((left, right) => left.matchCount - right.matchCount || left.generalCount - right.generalCount)
       .map((group) => `${group.names.sort((left, right) => left.localeCompare(right, "vi")).map((name) => `@[${name}]`).join(", ")} còn nợ ${debtDescription(group.matchCount, group.generalCount)}.`)
       .join("\n");
 
-    const result = await sendConfiguredMessengerMessage(message);
-    if (result.status === "sent") return { status: "sent", debtorCount: debtByUser.size, message };
+    let messageToSend = deterministicMessage;
+
+    // Kiểm tra cấu hình AI Debt Reminder
+    try {
+      const llmSettings = await getPrisma().setting.findMany({
+        where: { type: LLM_SETTING_TYPE },
+        select: { key: true, value: true, enabled: true },
+      });
+      const llmMap = new Map(llmSettings.map((s) => [s.key, s]));
+      const isLlmEnabled = llmSettings.length > 0 && llmSettings.every((s) => s.enabled);
+      const aiDebtReminderEnabled =
+        isLlmEnabled &&
+        llmMap.get(LLM_SETTING_KEYS.aiDebtReminderEnabled)?.value === "true";
+
+      if (aiDebtReminderEnabled) {
+        const apiUrl = (llmMap.get(LLM_SETTING_KEYS.apiUrl)?.value || DEFAULT_LLM_SETTINGS.apiUrl).replace(/\/+$/, "");
+        const apiKey = llmMap.get(LLM_SETTING_KEYS.apiKey)?.value || "";
+        const model = llmMap.get(LLM_SETTING_KEYS.model)?.value || DEFAULT_LLM_SETTINGS.model;
+
+        const debtorsListStr = [...debtByUser.values()]
+          .map((d) => `- @[${d.name}]: nợ ${debtDescription(d.matchCount, d.generalCount)}`)
+          .join("\n");
+
+        const prompt = `Bạn là thủ quỹ vui tính và tâm huyết của đội bóng FC Đông Đô.
+Dưới đây là danh sách anh em còn nợ tiền quỹ:
+${debtorsListStr}
+
+Yêu cầu:
+- Soạn một thông báo nhắc nợ ngắn gọn (2-4 câu), hài hước, thân mật, mang phong cách bóng đá sân cỏ phủi.
+- BẮT BUỘC giữ nguyên chính xác cú pháp tag tên @[Họ và tên] (ví dụ: @[Nguyễn Tuấn Dương], @[Tùng Phạm]) của tất cả những người trong danh sách để hệ thống tag được vào Facebook.
+- Khéo léo nhắc anh em sớm chuyển khoản cho thủ quỹ.
+- Chỉ trả về duy nhất nội dung tin nhắn, không thêm tiêu đề hay lời giải thích.`;
+
+        const res = await fetch(`${apiUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model,
+            stream: false,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 300,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+
+        if (res.ok) {
+          const payload = (await res.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const aiText = payload.choices?.[0]?.message?.content?.trim();
+          if (aiText && aiText.includes("@[")) {
+            messageToSend = aiText;
+          } else {
+            console.warn("LLM reminder response did not contain @[Tag] syntax, fallback to deterministic message.");
+          }
+        } else {
+          console.warn(`LLM reminder returned HTTP ${res.status}, fallback to deterministic message.`);
+        }
+      }
+    } catch (llmErr) {
+      console.warn("LLM debt reminder failed, falling back to deterministic template:", llmErr);
+      // Fallback to deterministicMessage
+    }
+
+    const result = await sendConfiguredMessengerMessage(messageToSend);
+    if (result.status === "sent") return { status: "sent", debtorCount: debtByUser.size, message: messageToSend };
     const error = result.status === "failed"
       ? result.error
       : result.reason === "disabled"
         ? "Cấu hình Messenger đang tắt."
         : "Cấu hình Messenger chưa đầy đủ.";
-    return { status: "failed", debtorCount: debtByUser.size, message, error };
+    return { status: "failed", debtorCount: debtByUser.size, message: messageToSend, error };
   } catch (error) {
     return {
       status: "failed",

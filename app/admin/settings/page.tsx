@@ -2,6 +2,7 @@ import { ResetDataButton } from "@/app/admin/settings/reset-data-button";
 import { ResetActivityDataButton } from "@/app/admin/settings/reset-activity-data-button";
 import { MessengerActions } from "@/app/admin/settings/messenger-actions";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
+import { LlmSettingsForm } from "@/app/admin/settings/llm-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
 import { AndroidStatusCheck } from "@/app/admin/settings/android-status-check";
 import { DebtReminderScheduleForm } from "@/app/admin/settings/debt-reminder-schedule-form";
@@ -13,16 +14,26 @@ import {
   DEBT_REMINDER_TIMEZONE,
   getNextDebtReminderAt,
 } from "@/lib/debt-reminder";
-import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
+import {
+  DEFAULT_LLM_SETTINGS,
+  LLM_SETTING_KEYS,
+  LLM_SETTING_TYPE,
+  SEND_MESSAGE_SETTING_KEYS,
+  SEND_MESSAGE_SETTING_TYPE,
+} from "@/lib/app-settings";
 import { getPrisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const prisma = getPrisma();
-  const [settings, reminderSchedule, reminderRuns] = await Promise.all([
+  const [settings, llmSettings, reminderSchedule, reminderRuns] = await Promise.all([
     prisma.setting.findMany({
       where: { type: SEND_MESSAGE_SETTING_TYPE },
+      select: { key: true, value: true, enabled: true },
+    }),
+    prisma.setting.findMany({
+      where: { type: LLM_SETTING_TYPE },
       select: { key: true, value: true, enabled: true },
     }),
     prisma.debtReminderSchedule.findUnique({ where: { id: DEBT_REMINDER_SCHEDULE_ID } }),
@@ -39,6 +50,22 @@ export default async function SettingsPage() {
   const chatUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.chatUrl)?.value ?? "";
   const enabled = settings.length > 0 && settings.every((setting) => setting.enabled);
   const messengerConfigured = enabled && Boolean(apiUrl && apiKey && chatUrl);
+
+  const llmSettingsByKey = new Map(llmSettings.map((s) => [s.key, s]));
+  const llmApiUrl =
+    llmSettingsByKey.get(LLM_SETTING_KEYS.apiUrl)?.value ?? DEFAULT_LLM_SETTINGS.apiUrl;
+  const llmApiKey = llmSettingsByKey.get(LLM_SETTING_KEYS.apiKey)?.value ?? "";
+  const llmModel =
+    llmSettingsByKey.get(LLM_SETTING_KEYS.model)?.value ?? DEFAULT_LLM_SETTINGS.model;
+  const llmSystemPrompt =
+    llmSettingsByKey.get(LLM_SETTING_KEYS.systemPrompt)?.value ?? DEFAULT_LLM_SETTINGS.systemPrompt;
+  const llmTargetEnv = (llmSettingsByKey.get(LLM_SETTING_KEYS.targetEnv)?.value === "prod"
+    ? "prod"
+    : "test") as "test" | "prod";
+  const llmAiDebtReminderEnabled =
+    llmSettingsByKey.get(LLM_SETTING_KEYS.aiDebtReminderEnabled)?.value === "true";
+  const llmEnabled = llmSettings.length > 0 && llmSettings.every((s) => s.enabled);
+
   const schedule = {
     enabled: reminderSchedule?.enabled ?? false,
     days: reminderSchedule?.days ?? DEFAULT_DEBT_REMINDER_DAYS,
@@ -61,6 +88,18 @@ export default async function SettingsPage() {
 
         <section className="panel settings-integration-panel">
           <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
+        </section>
+
+        <section className="panel settings-integration-panel">
+          <LlmSettingsForm
+            enabled={llmEnabled}
+            apiUrl={llmApiUrl}
+            hasApiKey={Boolean(llmApiKey)}
+            model={llmModel}
+            systemPrompt={llmSystemPrompt}
+            targetEnv={llmTargetEnv}
+            aiDebtReminderEnabled={llmAiDebtReminderEnabled}
+          />
         </section>
 
         <section className="panel settings-messenger-actions-panel">

@@ -3,7 +3,13 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "@/lib/admin-session";
-import { SEND_MESSAGE_SETTING_KEYS, SEND_MESSAGE_SETTING_TYPE } from "@/lib/app-settings";
+import {
+  DEFAULT_LLM_SETTINGS,
+  LLM_SETTING_KEYS,
+  LLM_SETTING_TYPE,
+  SEND_MESSAGE_SETTING_KEYS,
+  SEND_MESSAGE_SETTING_TYPE,
+} from "@/lib/app-settings";
 import {
   DEBT_REMINDER_SCHEDULE_ID,
   DEBT_REMINDER_TIMEZONE,
@@ -25,6 +31,24 @@ export type ResetDataResult =
 export type SaveSendMessageSettingsResult = {
   status: "idle" | "success" | "error";
   message: string;
+};
+
+export type SaveLlmSettingsResult = {
+  status: "idle" | "success" | "error";
+  message: string;
+};
+
+export type FetchLlmModelsResult = {
+  status: "success" | "error";
+  message?: string;
+  models?: string[];
+};
+
+export type TestLlmModelResult = {
+  status: "success" | "error";
+  message?: string;
+  reply?: string;
+  latencyMs?: number;
 };
 
 export type SendDebtReminderResult = {
@@ -449,6 +473,203 @@ export async function saveSendMessageSettings(
   } catch (error) {
     console.error("Không thể lưu cấu hình Messenger:", error);
     return { status: "error", message: "Không thể lưu cấu hình. Vui lòng thử lại." };
+  }
+}
+
+export async function fetchLlmModels(
+  rawApiUrl: string,
+  rawApiKey?: string,
+): Promise<FetchLlmModelsResult> {
+  if (!(await isAdminAuthenticated())) {
+    return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  }
+
+  const apiUrl = rawApiUrl.trim().replace(/\/+$/, "");
+  if (!apiUrl) {
+    return { status: "error", message: "Vui lòng nhập API URL." };
+  }
+
+  let apiKey = rawApiKey?.trim() ?? "";
+  if (!apiKey) {
+    const prisma = getPrisma();
+    const existing = await prisma.setting.findUnique({
+      where: { type_key: { type: LLM_SETTING_TYPE, key: LLM_SETTING_KEYS.apiKey } },
+      select: { value: true },
+    });
+    apiKey = existing?.value ?? "";
+  }
+
+  try {
+    const res = await fetch(`${apiUrl}/models`, {
+      method: "GET",
+      headers: {
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { status: "error", message: `API trả về lỗi HTTP ${res.status}: ${errText.slice(0, 300)}` };
+    }
+
+    const payload = (await res.json()) as { data?: Array<{ id: string }> };
+    const modelList = Array.isArray(payload.data)
+      ? payload.data.map((m) => m.id).filter(Boolean)
+      : [];
+
+    if (!modelList.length) {
+      return { status: "error", message: "API không trả về danh sách model hợp lệ." };
+    }
+
+    return { status: "success", models: modelList };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Không thể kết nối đến API URL.",
+    };
+  }
+}
+
+export async function testLlmModel(
+  rawApiUrl: string,
+  rawModel: string,
+  rawApiKey?: string,
+): Promise<TestLlmModelResult> {
+  if (!(await isAdminAuthenticated())) {
+    return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  }
+
+  const apiUrl = rawApiUrl.trim().replace(/\/+$/, "");
+  const model = rawModel.trim();
+  if (!apiUrl || !model) {
+    return { status: "error", message: "Vui lòng nhập API URL và chọn Model." };
+  }
+
+  let apiKey = rawApiKey?.trim() ?? "";
+  if (!apiKey) {
+    const prisma = getPrisma();
+    const existing = await prisma.setting.findUnique({
+      where: { type_key: { type: LLM_SETTING_TYPE, key: LLM_SETTING_KEYS.apiKey } },
+      select: { value: true },
+    });
+    apiKey = existing?.value ?? "";
+  }
+
+  const startTime = Date.now();
+  try {
+    const res = await fetch(`${apiUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [
+          { role: "system", content: "Bạn là trợ lý AI. Trả lời cực ngắn dưới 10 từ." },
+          { role: "user", content: "Kiểm tra kết nối." },
+        ],
+        max_tokens: 50,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    const latencyMs = Date.now() - startTime;
+    if (!res.ok) {
+      const errText = await res.text();
+      return { status: "error", message: `Lỗi HTTP ${res.status}: ${errText.slice(0, 300)}` };
+    }
+
+    const payload = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const reply = payload.choices?.[0]?.message?.content?.trim() || "(Không có nội dung phản hồi)";
+
+    return { status: "success", reply, latencyMs };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Kiểm tra model thất bại.",
+    };
+  }
+}
+
+export async function saveLlmSettings(
+  _previousState: SaveLlmSettingsResult,
+  formData: FormData,
+): Promise<SaveLlmSettingsResult> {
+  if (!(await isAdminAuthenticated())) {
+    return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  }
+
+  const enabled = formData.get("enabled") === "on";
+  const apiUrl = readText(formData, "apiUrl") || DEFAULT_LLM_SETTINGS.apiUrl;
+  const apiKey = readText(formData, "apiKey");
+  const model = readText(formData, "model") || DEFAULT_LLM_SETTINGS.model;
+  const systemPrompt = readText(formData, "systemPrompt") || DEFAULT_LLM_SETTINGS.systemPrompt;
+  const targetEnv = (readText(formData, "targetEnv") === "prod" ? "prod" : "test") as "test" | "prod";
+  const aiDebtReminderEnabled = formData.get("aiDebtReminderEnabled") === "on";
+
+  if (apiUrl && !validHttpUrl(apiUrl)) {
+    return { status: "error", message: "API URL phải là địa chỉ HTTP hoặc HTTPS hợp lệ." };
+  }
+
+  try {
+    const prisma = getPrisma();
+    const existingApiKey = await prisma.setting.findUnique({
+      where: {
+        type_key: {
+          type: LLM_SETTING_TYPE,
+          key: LLM_SETTING_KEYS.apiKey,
+        },
+      },
+      select: { value: true },
+    });
+    const savedApiKey = apiKey || existingApiKey?.value || "";
+
+    if (enabled && (!apiUrl || !savedApiKey)) {
+      return { status: "error", message: "Cần nhập API URL và API Key trước khi bật Trợ lý AI." };
+    }
+
+    const entries = [
+      { key: LLM_SETTING_KEYS.apiUrl, value: apiUrl },
+      { key: LLM_SETTING_KEYS.apiKey, value: savedApiKey },
+      { key: LLM_SETTING_KEYS.model, value: model },
+      { key: LLM_SETTING_KEYS.systemPrompt, value: systemPrompt },
+      { key: LLM_SETTING_KEYS.targetEnv, value: targetEnv },
+      { key: LLM_SETTING_KEYS.aiDebtReminderEnabled, value: String(aiDebtReminderEnabled) },
+    ];
+
+    await prisma.$transaction(
+      entries.map((entry) =>
+        prisma.setting.upsert({
+          where: {
+            type_key: {
+              type: LLM_SETTING_TYPE,
+              key: entry.key,
+            },
+          },
+          create: {
+            type: LLM_SETTING_TYPE,
+            key: entry.key,
+            value: entry.value,
+            enabled,
+          },
+          update: {
+            value: entry.value,
+            enabled,
+          },
+        }),
+      ),
+    );
+
+    revalidatePath("/admin/settings");
+    return { status: "success", message: "Đã lưu cấu hình Trợ lý AI thành công." };
+  } catch (error) {
+    console.error("Không thể lưu cấu hình LLM:", error);
+    return { status: "error", message: "Không thể lưu cấu hình Trợ lý AI. Vui lòng thử lại." };
   }
 }
 
