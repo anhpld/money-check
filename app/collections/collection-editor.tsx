@@ -577,38 +577,27 @@ export function CollectionEditor({
   // MAIN MODERN EDITOR
   return (
     <div className="collection-editor-modern">
-      {/* 1. STICKY FINANCIAL SUMMARY HEADER */}
+      {/* 1. FINANCIAL SUMMARY BAR (COMPACT & UNIFIED) */}
       <header className="panel collection-summary-bar">
-        <div className="summary-bar-main">
-          <div className="summary-bar-meta">
-            <span className="collection-kind-pill">{isMatch ? "Trận đấu" : "Khoản thu khác"}</span>
-            <h1 className="summary-bar-title">{title || "Khoản thu mới"}</h1>
-            <span className={`summary-status-pill ${initial?.status === "PUBLISHED" ? "published" : "draft"}`}>
-              <i />
-              {initial?.status === "PUBLISHED" ? "Đang public" : "Bản nháp"}
-            </span>
+        <div className="summary-bar-metrics">
+          <div className="summary-metric">
+            <span>Tổng tiền</span>
+            <strong>{formatVnd(totalAmount)}</strong>
           </div>
-
-          <div className="summary-bar-metrics">
-            <div className="summary-metric">
-              <span>Tổng tiền</span>
-              <strong>{formatVnd(totalAmount)}</strong>
-            </div>
-            <div className="summary-metric">
-              <span>Đã thu</span>
-              <strong className="text-success">{formatVnd(totalPaidSum)}</strong>
-              <small>({paidMembersCount}/{selectedIds.length} người)</small>
-            </div>
-            <div className="summary-metric">
-              <span>Còn thiếu</span>
-              <strong className={totalOutstanding > 0 ? "text-error" : ""}>
-                {formatVnd(totalOutstanding)}
-              </strong>
-            </div>
-            <div className={`summary-metric balance-box ${difference === 0 ? "balanced" : "warning"}`}>
-              <span>Phân bổ</span>
-              <strong>{difference === 0 ? "Đã khớp 100%" : `Chênh ${difference > 0 ? "+" : ""}${formatVnd(difference)}`}</strong>
-            </div>
+          <div className="summary-metric">
+            <span>Đã thu</span>
+            <strong className="text-success">{formatVnd(totalPaidSum)}</strong>
+            <small>({paidMembersCount}/{selectedIds.length} người)</small>
+          </div>
+          <div className="summary-metric">
+            <span>Còn thiếu</span>
+            <strong className={totalOutstanding > 0 ? "text-error" : ""}>
+              {formatVnd(totalOutstanding)}
+            </strong>
+          </div>
+          <div className={`summary-metric balance-box ${difference === 0 ? "balanced" : "warning"}`}>
+            <span>Phân bổ</span>
+            <strong>{difference === 0 ? "Khớp 100%" : `Chênh ${difference > 0 ? "+" : ""}${formatVnd(difference)}`}</strong>
           </div>
         </div>
 
@@ -637,7 +626,7 @@ export function CollectionEditor({
             onClick={() => save("PUBLISHED")}
           >
             {isPending ? <span className="spinner" /> : null}
-            {isPending ? "Đang lưu..." : initial?.status === "PUBLISHED" ? "Lưu thay đổi" : "Public khoản thu"}
+            {isPending ? "Đang lưu..." : initial?.status === "PUBLISHED" ? "Lưu thay đổi" : "Public"}
           </button>
         </div>
       </header>
@@ -828,25 +817,22 @@ export function CollectionEditor({
 
                         {/* Phải đóng Input */}
                         <td className="text-right">
-                          {isExempt ? (
-                            <span className="text-muted font-mono">0 đ</span>
-                          ) : (
-                            <div className="compact-money-cell">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={formatMoneyInput(amounts[user.id] ?? 0)}
-                                onChange={(e) =>
-                                  setAmounts((curr) => ({
-                                    ...curr,
-                                    [user.id]: parseMoneyInput(e.target.value),
-                                  }))
-                                }
-                                placeholder="0"
-                              />
-                              <span>đ</span>
-                            </div>
-                          )}
+                          <div className={`compact-money-cell ${isExempt ? "disabled" : ""}`}>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              disabled={isExempt}
+                              value={isExempt ? "0" : formatMoneyInput(amounts[user.id] ?? 0)}
+                              onChange={(e) =>
+                                setAmounts((curr) => ({
+                                  ...curr,
+                                  [user.id]: parseMoneyInput(e.target.value),
+                                }))
+                              }
+                              placeholder="0"
+                            />
+                            <span>đ</span>
+                          </div>
                         </td>
 
                         {/* Đã trả */}
