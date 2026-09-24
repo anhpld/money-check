@@ -5,31 +5,81 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { deleteCollection, markMemberPaidManually, saveCollection } from "@/app/collections/actions";
-import type { CollectionChargeOption, CollectionEditorData, CollectionOpponent, CollectionUser, PaidBreakdown } from "@/app/collections/types";
-import { allocateBySlots, formatMoneyInput, formatVnd, parseMoneyInput, roundUpToOneThousand } from "@/lib/money";
+import type {
+  CollectionChargeOption,
+  CollectionEditorData,
+  CollectionOpponent,
+  CollectionUser,
+  PaidBreakdown,
+} from "@/app/collections/types";
+import {
+  allocateBySlots,
+  formatMoneyInput,
+  formatVnd,
+  parseMoneyInput,
+  roundUpToOneThousand,
+} from "@/lib/money";
 import { getPaidBreakdownTotal } from "@/lib/payment-totals";
 
 function sanitizeStatInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 3).replace(/^0+(?=\d)/, "");
 }
 
-export function CollectionEditor({ users, opponents, initial, initialKind = "MATCH" }: { users: CollectionUser[]; opponents: CollectionOpponent[]; initial?: CollectionEditorData; initialKind?: "MATCH" | "GENERAL" }) {
+export function CollectionEditor({
+  users,
+  opponents,
+  initial,
+  initialKind = "MATCH",
+}: {
+  users: CollectionUser[];
+  opponents: CollectionOpponent[];
+  initial?: CollectionEditorData;
+  initialKind?: "MATCH" | "GENERAL";
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
+
   const kind: "MATCH" | "GENERAL" = initial?.kind ?? initialKind;
+  const isMatch = kind === "MATCH";
+
+  // Tab: "members" (Thành viên & Thu tiền) or "settings" (Thông tin & Cài đặt)
+  const [activeTab, setActiveTab] = useState<"members" | "settings">(
+    initial?.status === "PUBLISHED" ? "members" : "settings",
+  );
+
+  // Search & Filter in Members tab
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberFilter, setMemberFilter] = useState<"all" | "debt" | "paid">("all");
+  const [userPickerOpen, setUserPickerOpen] = useState(false);
+  const [userPickerSearch, setUserPickerSearch] = useState("");
+
+  // Expanded member details (goals, assists, fee exemption, notes)
+  const [expandedMemberIds, setExpandedMemberIds] = useState<Record<string, boolean>>({});
+
+  // Form state
   const [title, setTitle] = useState(initial?.title ?? "");
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? "");
   const [opponentId, setOpponentId] = useState(initial?.opponentId ?? "");
   const [addingOpponent, setAddingOpponent] = useState(false);
   const [newOpponentName, setNewOpponentName] = useState("");
-  const [ourScore, setOurScore] = useState(initial?.ourScore === null || initial?.ourScore === undefined ? "" : String(initial.ourScore));
-  const [opponentScore, setOpponentScore] = useState(initial?.opponentScore === null || initial?.opponentScore === undefined ? "" : String(initial.opponentScore));
+  const [ourScore, setOurScore] = useState(
+    initial?.ourScore === null || initial?.ourScore === undefined ? "" : String(initial.ourScore),
+  );
+  const [opponentScore, setOpponentScore] = useState(
+    initial?.opponentScore === null || initial?.opponentScore === undefined
+      ? ""
+      : String(initial.opponentScore),
+  );
   const [note, setNote] = useState(initial?.note ?? "");
   const [totalAmount, setTotalAmount] = useState(initial?.totalAmount ?? 0);
-  const [chargeOptions, setChargeOptions] = useState<CollectionChargeOption[]>(initial?.chargeOptions ?? []);
-  const [selectedIds, setSelectedIds] = useState<string[]>(initial?.members.map((member) => member.userId) ?? []);
+  const [chargeOptions, setChargeOptions] = useState<CollectionChargeOption[]>(
+    initial?.chargeOptions ?? [],
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    initial?.members.map((member) => member.userId) ?? [],
+  );
   const [slots, setSlots] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.slots]) ?? []),
   );
@@ -40,22 +90,30 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.note]) ?? []),
   );
   const [feeExemptions, setFeeExemptions] = useState<Record<string, boolean>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, member.isFeeExempt]) ?? []),
+    Object.fromEntries(
+      initial?.members.map((member) => [member.userId, member.isFeeExempt]) ?? [],
+    ),
   );
   const [exemptionReasons, setExemptionReasons] = useState<Record<string, string>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, member.exemptionReason]) ?? []),
+    Object.fromEntries(
+      initial?.members.map((member) => [member.userId, member.exemptionReason]) ?? [],
+    ),
   );
   const [goals, setGoals] = useState<Record<string, string>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, String(member.goals)]) ?? []),
   );
   const [assists, setAssists] = useState<Record<string, string>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, String(member.assists)]) ?? []),
+    Object.fromEntries(
+      initial?.members.map((member) => [member.userId, String(member.assists)]) ?? [],
+    ),
   );
   const [paidAmounts, setPaidAmounts] = useState<Record<string, number>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.amountPaid]) ?? []),
   );
   const [manualPaidUsers, setManualPaidUsers] = useState<Record<string, boolean>>(
-    Object.fromEntries(initial?.members.map((member) => [member.userId, Boolean(member.manualPaidAt)]) ?? []),
+    Object.fromEntries(
+      initial?.members.map((member) => [member.userId, Boolean(member.manualPaidAt)]) ?? [],
+    ),
   );
   const [paidBreakdowns, setPaidBreakdowns] = useState<Record<string, PaidBreakdown>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.paidBreakdown]) ?? []),
@@ -63,12 +121,20 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
   const [paidOptionIds, setPaidOptionIds] = useState<Record<string, string[]>>(
     Object.fromEntries(initial?.members.map((member) => [member.userId, member.paidOptionIds]) ?? []),
   );
-  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>(
-    Object.fromEntries(initial?.members.filter((member) => member.note.trim()).map((member) => [member.userId, true]) ?? []),
-  );
-  const [manualPaymentTarget, setManualPaymentTarget] = useState<{ memberId: string; userId: string; name: string; footballAmount: number } | null>(null);
-  const [manualOptionSelections, setManualOptionSelections] = useState<Record<string, { included: boolean; amount: number }>>({});
+
+  // Manual payment modal state
+  const [manualPaymentTarget, setManualPaymentTarget] = useState<{
+    memberId: string;
+    userId: string;
+    name: string;
+    footballAmount: number;
+  } | null>(null);
+  const [manualOptionSelections, setManualOptionSelections] = useState<
+    Record<string, { included: boolean; amount: number }>
+  >({});
   const [manualPaymentError, setManualPaymentError] = useState("");
+
+  // Delete modal state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
@@ -76,31 +142,54 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     () => new Map(initial?.members.map((member) => [member.userId, member]) ?? []),
     [initial],
   );
-  const selectedUsers = users
-    .filter((user) => selectedIds.includes(user.id))
-    .sort((left, right) => {
-      const rank = (userId: string) => {
-        const paid = getPaidBreakdownTotal(paidBreakdowns[userId] ?? {
-          footballAmount: paidAmounts[userId] ?? 0,
-          options: [],
-        });
-        const due = amounts[userId] ?? 0;
-        return paid <= 0 ? 0 : paid < due ? 1 : 2;
-      };
-      return rank(left.id) - rank(right.id) || left.name.localeCompare(right.name, "vi");
-    });
-  const chargeableIds = selectedIds.filter((userId) => kind !== "MATCH" || !feeExemptions[userId]);
-  const totalSlots = chargeableIds.reduce((sum, userId) => sum + (kind === "MATCH" ? slots[userId] ?? 1 : 1), 0);
-  const amountPerSlot = totalSlots
-    ? roundUpToOneThousand(totalAmount / totalSlots)
-    : 0;
+
+  const selectedUsers = useMemo(() => {
+    return users
+      .filter((user) => selectedIds.includes(user.id))
+      .sort((left, right) => {
+        const rank = (userId: string) => {
+          const paid = getPaidBreakdownTotal(
+            paidBreakdowns[userId] ?? {
+              footballAmount: paidAmounts[userId] ?? 0,
+              options: [],
+            },
+          );
+          const due = amounts[userId] ?? 0;
+          return paid <= 0 ? 0 : paid < due ? 1 : 2;
+        };
+        return rank(left.id) - rank(right.id) || left.name.localeCompare(right.name, "vi");
+      });
+  }, [users, selectedIds, paidBreakdowns, paidAmounts, amounts]);
+
+  const chargeableIds = selectedIds.filter((userId) => !isMatch || !feeExemptions[userId]);
+  const totalSlots = chargeableIds.reduce(
+    (sum, userId) => sum + (isMatch ? slots[userId] ?? 1 : 1),
+    0,
+  );
+  const amountPerSlot = totalSlots ? roundUpToOneThousand(totalAmount / totalSlots) : 0;
   const allocatedAmount = selectedIds.reduce((sum, userId) => sum + (amounts[userId] ?? 0), 0);
   const difference = allocatedAmount - totalAmount;
 
+  const totalPaidSum = selectedIds.reduce((sum, id) => sum + (paidAmounts[id] ?? 0), 0);
+  const totalOutstanding = Math.max(allocatedAmount - totalPaidSum, 0);
+  const paidMembersCount = selectedUsers.filter(
+    (u) => (paidAmounts[u.id] ?? 0) >= (amounts[u.id] ?? 0) && (amounts[u.id] ?? 0) > 0,
+  ).length;
+
   function distributeEvenly(ids: string[], total: number, slotValues = slots) {
-    const splitIds = ids.filter((id) => kind !== "MATCH" || !feeExemptions[id]);
-    const distributed = allocateBySlots(total, splitIds.map((id) => ({ id, slots: kind === "MATCH" ? slotValues[id] ?? 1 : 1 })));
-    setAmounts((current) => Object.fromEntries(ids.map((id) => [id, kind === "MATCH" && feeExemptions[id] ? 0 : distributed[id] ?? current[id] ?? 0])));
+    const splitIds = ids.filter((id) => !isMatch || !feeExemptions[id]);
+    const distributed = allocateBySlots(
+      total,
+      splitIds.map((id) => ({ id, slots: isMatch ? slotValues[id] ?? 1 : 1 })),
+    );
+    setAmounts((current) =>
+      Object.fromEntries(
+        ids.map((id) => [
+          id,
+          isMatch && feeExemptions[id] ? 0 : distributed[id] ?? current[id] ?? 0,
+        ]),
+      ),
+    );
   }
 
   function changeTotal(value: number) {
@@ -120,63 +209,84 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
       else next[userId] = "";
       return next;
     });
-    setFeeExemptions((current) => ({ ...current, [userId]: false }));
-    setExemptionReasons((current) => ({ ...current, [userId]: "" }));
-    setGoals((current) => ({ ...current, [userId]: "0" }));
-    setAssists((current) => ({ ...current, [userId]: "0" }));
-    setAmounts((current) => {
+    setFeeExemptions((current) => {
       const next = { ...current };
       if (isSelected) delete next[userId];
-      else next[userId] = 0;
+      else next[userId] = false;
+      return next;
+    });
+    setExemptionReasons((current) => {
+      const next = { ...current };
+      if (isSelected) delete next[userId];
+      else next[userId] = "";
+      return next;
+    });
+    setGoals((current) => {
+      const next = { ...current };
+      if (isSelected) delete next[userId];
+      else next[userId] = "0";
+      return next;
+    });
+    setAssists((current) => {
+      const next = { ...current };
+      if (isSelected) delete next[userId];
+      else next[userId] = "0";
       return next;
     });
     setSelectedIds(nextIds);
     setSlots(nextSlots);
+    distributeEvenly(nextIds, totalAmount, nextSlots);
   }
 
   function selectAll() {
-    const nextIds = selectedIds.length === users.length ? [] : users.map((user) => user.id);
+    if (selectedIds.length === users.length && users.length) {
+      setSelectedIds([]);
+      setSlots({});
+      setAmounts({});
+      return;
+    }
+    const nextIds = users.map((user) => user.id);
     const nextSlots = Object.fromEntries(nextIds.map((id) => [id, slots[id] ?? 1]));
-    setAmounts((current) => Object.fromEntries(nextIds.map((id) => [id, current[id] ?? 0])));
     setSelectedIds(nextIds);
     setSlots(nextSlots);
+    distributeEvenly(nextIds, totalAmount, nextSlots);
   }
 
-  function changeSlots(userId: string, difference: number) {
-    const nextSlots = { ...slots, [userId]: Math.max(1, (slots[userId] ?? 1) + difference) };
+  function changeSlots(userId: string, delta: number) {
+    const nextSlots = {
+      ...slots,
+      [userId]: Math.max(1, (slots[userId] ?? 1) + delta),
+    };
     setSlots(nextSlots);
+    distributeEvenly(selectedIds, totalAmount, nextSlots);
+  }
+
+  function toggleExpandMember(userId: string) {
+    setExpandedMemberIds((curr) => ({ ...curr, [userId]: !curr[userId] }));
   }
 
   function addChargeOption() {
-    setChargeOptions((current) => [...current, {
-      id: crypto.randomUUID(),
+    const nextOption: CollectionChargeOption = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `opt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: "",
       defaultAmount: 0,
       autoSelected: false,
       allowCustomAmount: false,
-    }]);
+    };
+    setChargeOptions((current) => [...current, nextOption]);
   }
 
   function updateChargeOption(id: string, patch: Partial<CollectionChargeOption>) {
-    setChargeOptions((current) => current.map((option) => option.id === id ? { ...option, ...patch } : option));
-  }
-
-  function openManualPayment(target: { memberId: string; userId: string; name: string; footballAmount: number }) {
-    const paidIds = new Set(paidOptionIds[target.userId] ?? []);
-    const availableOptions = chargeOptions.filter((option) => !paidIds.has(option.id));
-    setManualPaymentError("");
-    setManualOptionSelections(Object.fromEntries(availableOptions.map((option) => [option.id, {
-      included: option.autoSelected,
-      amount: option.defaultAmount,
-    }])));
-    setManualPaymentTarget(target);
+    setChargeOptions((current) =>
+      current.map((option) => (option.id === id ? { ...option, ...patch } : option)),
+    );
   }
 
   function validate() {
     if (title.trim().length < 3) return "Nhập tên khoản thu có ít nhất 3 ký tự.";
-    if (!playedAt) return "Chọn ngày áp dụng.";
+    if (!playedAt) return isMatch ? "Chọn ngày đá." : "Chọn ngày áp dụng.";
     if (totalAmount < 0 || (kind === "GENERAL" && totalAmount === 0)) return "Kiểm tra lại tổng tiền.";
-    if (kind === "MATCH" && (addingOpponent ? newOpponentName.trim().length < 2 : !opponentId)) return "Chọn hoặc nhập đối thủ.";
+    if (isMatch && (addingOpponent ? newOpponentName.trim().length < 2 : !opponentId)) return "Chọn hoặc nhập đối thủ.";
     if ((ourScore === "") !== (opponentScore === "")) return "Nhập đủ tỷ số của hai đội.";
     if (!selectedIds.length) return "Chọn ít nhất một người tham gia.";
     if (selectedIds.some((id) => !Number.isInteger(amounts[id]) || amounts[id] < 0)) return "Kiểm tra lại số tiền của người tham gia.";
@@ -210,34 +320,64 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
       const result = await saveCollection({
         id: initial?.id,
         kind,
-        title,
+        title: title.trim(),
         playedAt,
-        opponentId: addingOpponent ? "" : opponentId,
-        newOpponentName: addingOpponent ? newOpponentName : "",
-        ourScore: kind === "MATCH" && ourScore !== "" ? Number(ourScore) : null,
-        opponentScore: kind === "MATCH" && opponentScore !== "" ? Number(opponentScore) : null,
-        note,
+        opponentId: isMatch && !addingOpponent ? opponentId : "",
+        newOpponentName: isMatch && addingOpponent ? newOpponentName.trim() : "",
+        ourScore: isMatch && ourScore !== "" ? Number(ourScore) : null,
+        opponentScore: isMatch && opponentScore !== "" ? Number(opponentScore) : null,
+        note: note.trim(),
         totalAmount,
-        chargeOptions,
+        chargeOptions: chargeOptions
+          .filter((option) => option.name.trim())
+          .map((option) => ({
+            ...option,
+            name: option.name.trim(),
+          })),
         status,
         members: selectedIds.map((userId) => ({
           userId,
-          slots: kind === "MATCH" ? slots[userId] ?? 1 : 1,
-          amountDue: kind === "MATCH" && feeExemptions[userId] ? 0 : amounts[userId] ?? 0,
-          note: memberNotes[userId] ?? "",
-          isFeeExempt: kind === "MATCH" && Boolean(feeExemptions[userId]),
-          exemptionReason: exemptionReasons[userId] ?? "",
-          goals: Number(goals[userId] || "0"),
-          assists: Number(assists[userId] || "0"),
+          slots: isMatch ? slots[userId] ?? 1 : 1,
+          amountDue: isMatch && feeExemptions[userId] ? 0 : amounts[userId] ?? 0,
+          note: memberNotes[userId]?.trim() ?? "",
+          isFeeExempt: isMatch ? Boolean(feeExemptions[userId]) : false,
+          exemptionReason: isMatch ? exemptionReasons[userId]?.trim() ?? "" : "",
+          goals: isMatch ? Number(goals[userId] || "0") : 0,
+          assists: isMatch ? Number(assists[userId] || "0") : 0,
         })),
       });
+
       if (result.status === "error") {
         setError(result.message);
         return;
       }
-      router.push("/admin/collections");
+      router.push(`/admin/collections/${result.id || initial?.id}`);
       router.refresh();
+      setPreview(false);
     });
+  }
+
+  function openManualPayment(target: {
+    memberId: string;
+    userId: string;
+    name: string;
+    footballAmount: number;
+  }) {
+    const paidIds = new Set(paidOptionIds[target.userId] ?? []);
+    const availableOptions = chargeOptions.filter((option) => !paidIds.has(option.id));
+    setManualPaymentError("");
+    setManualOptionSelections(
+      Object.fromEntries(
+        availableOptions.map((option) => [
+          option.id,
+          {
+            included: option.autoSelected,
+            amount: option.defaultAmount,
+          },
+        ]),
+      ),
+    );
+    setManualPaymentTarget(target);
   }
 
   function confirmManualPayment() {
@@ -245,7 +385,11 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     const target = manualPaymentTarget;
     const selectedOptions = manualChargeOptions
       .filter((option) => manualOptionSelections[option.id]?.included)
-      .map((option) => ({ optionId: option.id, amount: manualOptionSelections[option.id]?.amount ?? option.defaultAmount }));
+      .map((option) => ({
+        optionId: option.id,
+        amount: manualOptionSelections[option.id]?.amount ?? option.defaultAmount,
+      }));
+
     setManualPaymentError("");
     startTransition(async () => {
       const result = await markMemberPaidManually(target.memberId, selectedOptions);
@@ -258,7 +402,12 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
       setPaidBreakdowns((current) => ({ ...current, [target.userId]: result.paidBreakdown }));
       setPaidOptionIds((current) => ({
         ...current,
-        [target.userId]: [...new Set([...(current[target.userId] ?? []), ...selectedOptions.map((option) => option.optionId)])],
+        [target.userId]: [
+          ...new Set([
+            ...(current[target.userId] ?? []),
+            ...selectedOptions.map((option) => option.optionId),
+          ]),
+        ],
       }));
       setManualPaymentTarget(null);
       router.refresh();
@@ -279,14 +428,36 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     });
   }
 
+  // Filtered members for display
+  const filteredUsers = useMemo(() => {
+    return selectedUsers.filter((user) => {
+      if (memberSearch.trim()) {
+        const query = memberSearch.toLowerCase();
+        if (!user.name.toLowerCase().includes(query)) return false;
+      }
+      const paid = paidAmounts[user.id] ?? 0;
+      const due = amounts[user.id] ?? 0;
+      if (memberFilter === "debt") {
+        return paid < due;
+      }
+      if (memberFilter === "paid") {
+        return paid >= due && due > 0;
+      }
+      return true;
+    });
+  }, [selectedUsers, memberSearch, memberFilter, paidAmounts, amounts]);
+
   const manualChargeOptions = manualPaymentTarget
-    ? chargeOptions.filter((option) => !(paidOptionIds[manualPaymentTarget.userId] ?? []).includes(option.id))
+    ? chargeOptions.filter(
+        (option) => !(paidOptionIds[manualPaymentTarget.userId] ?? []).includes(option.id),
+      )
     : [];
   const manualOptionsTotal = manualChargeOptions.reduce((sum, option) => {
     const selection = manualOptionSelections[option.id];
     return sum + (selection?.included ? selection.amount : 0);
   }, 0);
 
+  // PREVIEW MODE
   if (preview) {
     return (
       <div className="collection-preview">
@@ -296,14 +467,26 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
             <h2>Preview khoản thu</h2>
             <p>Đây là dữ liệu người dùng sẽ nhìn thấy sau khi public.</p>
           </div>
-          <span className="draft-pill">{initial?.status === "PUBLISHED" ? "Đang public" : "Bản nháp"}</span>
+          <span className="draft-pill">
+            {initial?.status === "PUBLISHED" ? "Đang public" : "Bản nháp"}
+          </span>
         </div>
 
         <section className="preview-summary panel">
-          <div><span>Loại</span><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong></div>
+          <div><span>Loại</span><strong>{isMatch ? "Trận đấu" : "Khoản thu khác"}</strong></div>
           <div><span>Khoản thu</span><strong>{title}</strong></div>
-          <div><span>Ngày áp dụng</span><strong>{new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(playedAt))}</strong></div>
-          <div><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><strong>{kind === "MATCH" ? `${selectedIds.length} người · ${totalSlots} phần tính tiền` : `${selectedIds.length} người`}</strong></div>
+          <div>
+            <span>Ngày áp dụng</span>
+            <strong>
+              {playedAt ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(playedAt)) : "—"}
+            </strong>
+          </div>
+          <div>
+            <span>{isMatch ? "Người tham gia" : "Người cần đóng"}</span>
+            <strong>
+              {isMatch ? `${selectedIds.length} người · ${totalSlots} phần tính tiền` : `${selectedIds.length} người`}
+            </strong>
+          </div>
           <div><span>Tùy chọn chi phí</span><strong>{chargeOptions.length} tùy chọn</strong></div>
         </section>
 
@@ -316,20 +499,52 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
         </section>
 
         {difference !== 0 ? (
-          <div className="preview-warning"><span>!</span>Tổng tiền phân bổ đang {difference > 0 ? "cao hơn" : "thấp hơn"} tổng khoản thu {formatVnd(Math.abs(difference))}. Bạn vẫn có thể public.</div>
+          <div className="preview-warning">
+            <span>!</span>Tổng tiền phân bổ đang {difference > 0 ? "cao hơn" : "thấp hơn"} tổng khoản thu {formatVnd(Math.abs(difference))}. Bạn vẫn có thể public.
+          </div>
         ) : null}
 
         <article className="panel preview-members">
-          <div className="list-header"><div><h2>Chi tiết từng người</h2><p>Số tiền cuối cùng do admin xác nhận</p></div></div>
+          <div className="list-header">
+            <div><h2>Chi tiết từng người</h2><p>Số tiền cuối cùng do admin xác nhận</p></div>
+          </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</th>{kind === "MATCH" ? <th>Slot</th> : null}<th>Đã thanh toán</th><th>Phải đóng</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>{isMatch ? "Người tham gia" : "Người cần đóng"}</th>
+                  {isMatch ? <th>Slot</th> : null}
+                  <th>Đã thanh toán</th>
+                  <th>Phải đóng</th>
+                </tr>
+              </thead>
               <tbody>
                 {selectedUsers.map((user, index) => (
                   <tr key={user.id}>
-                    <td><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div className="preview-member-identity"><strong>{user.name}</strong>{kind === "MATCH" ? <small>{feeExemptions[user.id] ? "Miễn đóng" : `${Number(goals[user.id] || "0")} bàn · ${Number(assists[user.id] || "0")} kiến tạo`}</small> : memberNotes[user.id] ? <small>Ghi chú: {memberNotes[user.id]}</small> : null}</div></td>
-                    {kind === "MATCH" ? <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td> : null}
-                    <td><div className="preview-paid-value"><strong>{formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}</strong>{manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}</div></td>
+                    <td>
+                      <UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} />
+                      <div className="preview-member-identity">
+                        <strong>{user.name}</strong>
+                        {isMatch ? (
+                          <small>
+                            {feeExemptions[user.id]
+                              ? "Miễn đóng"
+                              : `${Number(goals[user.id] || "0")} bàn · ${Number(assists[user.id] || "0")} kiến tạo`}
+                          </small>
+                        ) : memberNotes[user.id] ? (
+                          <small>Ghi chú: {memberNotes[user.id]}</small>
+                        ) : null}
+                      </div>
+                    </td>
+                    {isMatch ? <td><span className="slot-count-badge">{slots[user.id] ?? 1} slot</span></td> : null}
+                    <td>
+                      <div className="preview-paid-value">
+                        <strong>
+                          {formatVnd(getPaidBreakdownTotal(paidBreakdowns[user.id] ?? { footballAmount: paidAmounts[user.id] ?? 0, options: [] }))}
+                        </strong>
+                        {manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}
+                      </div>
+                    </td>
                     <td><strong className="amount-emphasis">{formatVnd(amounts[user.id] ?? 0)}</strong></td>
                   </tr>
                 ))}
@@ -340,9 +555,15 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
 
         {error ? <div className="editor-error" role="alert">! {error}</div> : null}
         <div className="editor-footer preview-footer">
-          <button className="secondary-button" type="button" disabled={isPending} onClick={() => setPreview(false)}>Quay lại chỉnh sửa</button>
+          <button className="secondary-button" type="button" disabled={isPending} onClick={() => setPreview(false)}>
+            Quay lại chỉnh sửa
+          </button>
           <div>
-            {initial?.status !== "PUBLISHED" ? <button className="secondary-button" type="button" disabled={isPending} onClick={() => save("DRAFT")}>Lưu bản nháp</button> : null}
+            {initial?.status !== "PUBLISHED" ? (
+              <button className="secondary-button" type="button" disabled={isPending} onClick={() => save("DRAFT")}>
+                Lưu bản nháp
+              </button>
+            ) : null}
             <button className="primary-button publish-button" type="button" disabled={isPending} onClick={() => save("PUBLISHED")}>
               {isPending ? <span className="spinner" /> : null}
               {isPending ? "Đang lưu..." : initial?.status === "PUBLISHED" ? "Lưu thay đổi" : "Public khoản thu"}
@@ -353,221 +574,956 @@ export function CollectionEditor({ users, opponents, initial, initialKind = "MAT
     );
   }
 
+  // MAIN MODERN EDITOR
   return (
-    <div className="collection-editor">
-      <div className="collection-editor-grid">
-        <section className="panel editor-panel">
-            <div className="editor-section-heading"><span>01</span><div><h2>Thông tin khoản thu</h2><p>Nhập tên để người đóng biết rõ nội dung và số tiền.</p></div></div>
-          <div className="editor-fields">
-            <div className="field-group full-field"><label>Loại khoản thu</label><div className="collection-kind-readonly"><strong>{kind === "MATCH" ? "Trận đấu" : "Khoản thu khác"}</strong><small>{initial ? "Loại khoản thu không thể thay đổi sau khi tạo." : "Đã chọn ở bước tạo khoản thu."}</small></div></div>
-            <div className="field-group full-field"><label htmlFor="collection-title">Tên khoản thu</label><input id="collection-title" className="plain-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={kind === "MATCH" ? "Ví dụ: Tiền sân tối thứ 5" : "Ví dụ: Áo đội mùa 2026"} maxLength={100} /></div>
-            <div className="field-group full-field"><label htmlFor="played-at">{kind === "MATCH" ? "Ngày đá" : "Ngày áp dụng"}</label><input id="played-at" className="plain-input" type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></div>
-            {kind === "MATCH" ? <>
-              <div className="field-group full-field"><label htmlFor="opponent">Đối thủ</label><select id="opponent" className="plain-input" value={addingOpponent ? "__new" : opponentId} onChange={(event) => { const create = event.target.value === "__new"; setAddingOpponent(create); if (!create) setOpponentId(event.target.value); }}><option value="">Chọn đối thủ</option>{opponents.map((opponent) => <option value={opponent.id} key={opponent.id}>{opponent.name}</option>)}<option value="__new">+ Thêm đối thủ mới</option></select></div>
-              {addingOpponent ? <div className="field-group full-field"><label htmlFor="new-opponent">Tên đối thủ mới</label><input id="new-opponent" className="plain-input" value={newOpponentName} maxLength={100} onChange={(event) => setNewOpponentName(event.target.value)} /></div> : null}
-              <div className="field-group"><label htmlFor="our-score">Bàn FC Đông Đô</label><input id="our-score" className="plain-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={ourScore} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setOurScore(sanitizeStatInput(event.target.value))} placeholder="Chưa có" /></div>
-              <div className="field-group"><label htmlFor="opponent-score">Bàn đối thủ</label><input id="opponent-score" className="plain-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={opponentScore} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setOpponentScore(sanitizeStatInput(event.target.value))} placeholder="Chưa có" /></div>
-            </> : null}
-            <div className="field-group full-field"><label htmlFor="total-amount">Tổng tiền</label><div className="money-input"><input id="total-amount" type="text" inputMode="numeric" value={formatMoneyInput(totalAmount)} onChange={(event) => changeTotal(parseMoneyInput(event.target.value))} placeholder="0" /><span>VNĐ</span></div></div>
-            <div className="field-group full-field charge-options-field">
-              <div className="charge-options-heading"><div><label>Khoản bổ sung tùy chọn</label><small className="field-hint">Tên và giá linh hoạt; người dùng tự chọn khi thanh toán.</small></div><button type="button" onClick={addChargeOption}>+ Thêm tùy chọn</button></div>
-              <div className="charge-option-list">
-                {chargeOptions.map((option, index) => (
-                  <div className="charge-option-row" key={option.id}>
-                    <span className="charge-option-order">{index + 1}</span>
-                    <input className="plain-input" aria-label={`Tên tùy chọn ${index + 1}`} value={option.name} onChange={(event) => updateChargeOption(option.id, { name: event.target.value })} placeholder="Ví dụ: Tiền nước" maxLength={100} />
-                    <div className="money-input"><input aria-label={`Số tiền mặc định ${option.name || index + 1}`} type="text" inputMode="numeric" value={formatMoneyInput(option.defaultAmount)} onChange={(event) => updateChargeOption(option.id, { defaultAmount: parseMoneyInput(event.target.value) })} placeholder="0" /><span>VNĐ</span></div>
-                    <label className="charge-option-check"><input type="checkbox" checked={option.autoSelected} onChange={(event) => updateChargeOption(option.id, { autoSelected: event.target.checked })} /><span>Tự tích</span></label>
-                    <label className="charge-option-check"><input type="checkbox" checked={option.allowCustomAmount} onChange={(event) => updateChargeOption(option.id, { allowCustomAmount: event.target.checked })} /><span>Cho sửa tiền</span></label>
-                    <button className="charge-option-remove" type="button" aria-label={`Xóa ${option.name || `tùy chọn ${index + 1}`}`} onClick={() => setChargeOptions((current) => current.filter((item) => item.id !== option.id))}>×</button>
-                  </div>
-                ))}
-                {!chargeOptions.length ? <div className="charge-option-empty">Không có khoản bổ sung. Người dùng chỉ thanh toán số tiền đã phân bổ.</div> : null}
-              </div>
+    <div className="collection-editor-modern">
+      {/* 1. STICKY FINANCIAL SUMMARY HEADER */}
+      <header className="panel collection-summary-bar">
+        <div className="summary-bar-main">
+          <div className="summary-bar-meta">
+            <span className="collection-kind-pill">{isMatch ? "Trận đấu" : "Khoản thu khác"}</span>
+            <h1 className="summary-bar-title">{title || "Khoản thu mới"}</h1>
+            <span className={`summary-status-pill ${initial?.status === "PUBLISHED" ? "published" : "draft"}`}>
+              <i />
+              {initial?.status === "PUBLISHED" ? "Đang public" : "Bản nháp"}
+            </span>
+          </div>
+
+          <div className="summary-bar-metrics">
+            <div className="summary-metric">
+              <span>Tổng tiền</span>
+              <strong>{formatVnd(totalAmount)}</strong>
             </div>
-            <div className="field-group full-field"><label htmlFor="collection-note">Ghi chú</label><textarea id="collection-note" className="plain-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Ví dụ: loại áo, size, thời hạn đóng..." maxLength={500} /></div>
+            <div className="summary-metric">
+              <span>Đã thu</span>
+              <strong className="text-success">{formatVnd(totalPaidSum)}</strong>
+              <small>({paidMembersCount}/{selectedIds.length} người)</small>
+            </div>
+            <div className="summary-metric">
+              <span>Còn thiếu</span>
+              <strong className={totalOutstanding > 0 ? "text-error" : ""}>
+                {formatVnd(totalOutstanding)}
+              </strong>
+            </div>
+            <div className={`summary-metric balance-box ${difference === 0 ? "balanced" : "warning"}`}>
+              <span>Phân bổ</span>
+              <strong>{difference === 0 ? "Đã khớp 100%" : `Chênh ${difference > 0 ? "+" : ""}${formatVnd(difference)}`}</strong>
+            </div>
           </div>
-        </section>
+        </div>
 
-        <section className="panel editor-panel participant-panel">
-          <div className="editor-section-heading participant-heading">
-            <span>02</span><div><h2>{kind === "MATCH" ? "Chọn người tham gia" : "Chọn người cần đóng"}</h2><p>{kind === "MATCH" ? "Người được chọn sẽ được tính một trận tham gia." : "Khoản này không được tính vào thống kê trận đấu."}</p></div>
-            <button type="button" onClick={selectAll}>{selectedIds.length === users.length && users.length ? "Bỏ chọn" : "Chọn tất cả"}</button>
-          </div>
-          <div className="participant-list">
-            {users.map((user, index) => {
-              const selected = selectedIds.includes(user.id);
-              return (
-                <label className={`participant-choice ${selected ? "selected" : ""}`} key={user.id}>
-                  <input type="checkbox" checked={selected} onChange={() => toggleUser(user.id)} />
-                  <UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} />
-                  <span>{user.name}</span>
-                  <i>{selected ? "✓" : ""}</i>
-                </label>
-              );
-            })}
-            {!users.length ? <div className="mini-empty">Chưa có người dùng. Hãy tạo người dùng trước.</div> : null}
-          </div>
-        </section>
-      </div>
-
-      {selectedIds.length ? (
-        <section className="panel allocation-panel">
-          <div className="allocation-heading">
-            <div><p className="eyebrow">PHÂN BỔ CHI PHÍ</p><h2>{kind === "MATCH" ? "Chỉnh slot và số tiền" : "Phân bổ số tiền"}</h2><p>{kind === "MATCH" ? <>{totalSlots} slot · <strong>{formatVnd(amountPerSlot)}</strong>/slot</> : <>{selectedIds.length} người · <strong>{formatVnd(amountPerSlot)}</strong>/người</>}</p></div>
-            <button className="recalculate-button" type="button" onClick={() => distributeEvenly(selectedIds, totalAmount)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>
-              Chia đều lại
+        {/* Quick Top Bar Actions */}
+        <div className="summary-bar-actions">
+          <Link className="secondary-button compact-btn" href="/admin/collections">
+            Thoát
+          </Link>
+          <button className="secondary-button compact-btn" type="button" onClick={openPreview}>
+            Xem trước
+          </button>
+          {initial?.status !== "PUBLISHED" ? (
+            <button
+              className="secondary-button compact-btn"
+              type="button"
+              disabled={isPending}
+              onClick={() => save("DRAFT")}
+            >
+              Lưu nháp
             </button>
-          </div>
-          <div className="allocation-list">
-            <div className={`allocation-columns ${kind === "GENERAL" ? "without-slots" : ""}`} aria-hidden="true"><span>{kind === "MATCH" ? "Người tham gia" : "Người cần đóng"}</span><span>Trạng thái</span><span>Đã trả</span>{kind === "MATCH" ? <span>Số slot</span> : null}<span>Phải đóng</span></div>
-            {selectedUsers.map((user, index) => {
-              const member = membersByUser.get(user.id);
-              const amountPaid = paidAmounts[user.id] ?? 0;
-              const amountDue = amounts[user.id] ?? 0;
-              const paidBreakdown = paidBreakdowns[user.id] ?? { footballAmount: amountPaid, options: [] };
-              const totalPaid = getPaidBreakdownTotal(paidBreakdown);
-              const paymentState = amountPaid >= amountDue ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
-              return (
-              <div className={`allocation-row ${paymentState} ${kind === "GENERAL" ? "without-slots" : ""}`} key={user.id}>
-                <div className="allocation-user"><UserAvatar name={user.name} avatarKey={user.avatarKey} className="user-avatar" toneIndex={index} /><div><strong>{user.name}</strong><div className="allocation-user-meta"><small>{initial ? "Đang trong khoản thu" : "Thành viên được chọn"}</small><button type="button" onClick={() => setExpandedNotes((current) => ({ ...current, [user.id]: !current[user.id] }))}>{expandedNotes[user.id] ? "Đóng ghi chú" : memberNotes[user.id] ? "Ghi chú" : "Ghi chú +"}</button></div></div></div>
-                <div className={`allocation-status ${paymentState}`}>
-                  <small className="allocation-cell-label">Trạng thái</small>
-                  <div className="allocation-payment-badges">
-                    <span className="payment-state-badge">{paymentState === "paid" ? "Đã đủ" : paymentState === "partial" ? "Một phần" : "Chưa trả"}</span>
-                    {manualPaidUsers[user.id] ? <span className="manual-payment-badge">Thủ công</span> : null}
-                  </div>
-                  {initial?.status !== "DRAFT" && member && paymentState !== "paid" ? (
-                    <button
-                      className="manual-paid-button"
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => openManualPayment({ memberId: member.id, userId: user.id, name: user.name, footballAmount: Math.max(amountDue - amountPaid, 0) })}
-                    >
-                      Ghi nhận thanh toán
-                    </button>
-                  ) : null}
-                </div>
-                <div className={`allocation-paid ${paymentState}`}>
-                  <small className="allocation-cell-label">Đã trả</small>
-                  {totalPaid > 0 ? <strong>{formatVnd(totalPaid)}</strong> : null}
-                  {totalPaid > 0 ? (
-                    <div className="allocation-paid-breakdown">
-                      <span>Khoản chính: {formatVnd(paidBreakdown.footballAmount)}</span>
-                      {paidBreakdown.options.map((option) => <span key={option.name}>{option.name}: {formatVnd(option.amount)}</span>)}
-                    </div>
-                  ) : null}
-                  {totalPaid <= 0 ? <span className="allocation-paid-empty">—</span> : null}
-                </div>
-                {kind === "MATCH" ? <div className="allocation-slot-cell">
-                  <small className="allocation-cell-label">Số slot</small>
-                  <div className="slot-stepper" aria-label={`Số slot của ${user.name}`}>
-                    <button type="button" aria-label={`Giảm slot của ${user.name}`} disabled={(slots[user.id] ?? 1) <= 1} onClick={() => changeSlots(user.id, -1)}>−</button>
-                    <span><strong>{slots[user.id] ?? 1}</strong><small>slot</small></span>
-                    <button type="button" aria-label={`Tăng slot của ${user.name}`} onClick={() => changeSlots(user.id, 1)}>+</button>
-                  </div>
-                </div> : null}
-                <div className="allocation-due-cell">
-                  <small className="allocation-cell-label">Phải đóng</small>
-                  <div className="compact-money-input"><input aria-label={`Số tiền của ${user.name}`} type="text" inputMode="numeric" disabled={kind === "MATCH" && feeExemptions[user.id]} value={formatMoneyInput(amounts[user.id] ?? 0)} onChange={(event) => setAmounts((current) => ({ ...current, [user.id]: parseMoneyInput(event.target.value) }))} placeholder="0" /><span>đ</span></div>
-                </div>
-                {kind === "MATCH" ? <div className="match-member-details">
-                  <label className="match-exempt-toggle"><input type="checkbox" checked={feeExemptions[user.id] ?? false} onChange={(event) => { setFeeExemptions((current) => ({ ...current, [user.id]: event.target.checked })); if (event.target.checked) setAmounts((current) => ({ ...current, [user.id]: 0 })); }} /><span>Miễn đóng</span></label>
-                  {feeExemptions[user.id] ? <input className="plain-input" value={exemptionReasons[user.id] ?? ""} onChange={(event) => setExemptionReasons((current) => ({ ...current, [user.id]: event.target.value }))} placeholder="Lý do miễn đóng (không bắt buộc)" maxLength={300} /> : <span />}
-                  <label><span>Bàn thắng</span><input className="compact-number-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={goals[user.id] ?? "0"} onFocus={(event) => event.currentTarget.select()} onBlur={() => { if (!goals[user.id]) setGoals((current) => ({ ...current, [user.id]: "0" })); }} onChange={(event) => setGoals((current) => ({ ...current, [user.id]: sanitizeStatInput(event.target.value) }))} /></label>
-                  <label><span>Kiến tạo</span><input className="compact-number-input" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={assists[user.id] ?? "0"} onFocus={(event) => event.currentTarget.select()} onBlur={() => { if (!assists[user.id]) setAssists((current) => ({ ...current, [user.id]: "0" })); }} onChange={(event) => setAssists((current) => ({ ...current, [user.id]: sanitizeStatInput(event.target.value) }))} /></label>
-                </div> : null}
-                {expandedNotes[user.id] ? <label className="allocation-note-cell"><span>Ghi chú</span><input type="text" value={memberNotes[user.id] ?? ""} onChange={(event) => setMemberNotes((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={`Nhập ghi chú cho ${user.name}...`} maxLength={500} /></label> : null}
-              </div>
-              );
-            })}
-          </div>
-          <div className="allocation-total"><span>Tổng đã phân bổ</span><strong>{formatVnd(allocatedAmount)}</strong><em className={difference === 0 ? "balanced" : ""}>{difference === 0 ? "Đã khớp" : `Chênh ${difference > 0 ? "+" : ""}${formatVnd(difference)}`}</em></div>
-        </section>
-      ) : null}
+          ) : null}
+          <button
+            className="primary-button compact-btn"
+            type="button"
+            disabled={isPending}
+            onClick={() => save("PUBLISHED")}
+          >
+            {isPending ? <span className="spinner" /> : null}
+            {isPending ? "Đang lưu..." : initial?.status === "PUBLISHED" ? "Lưu thay đổi" : "Public khoản thu"}
+          </button>
+        </div>
+      </header>
 
       {error ? <div className="editor-error" role="alert">! {error}</div> : null}
-      {manualPaymentTarget ? (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !isPending) setManualPaymentTarget(null);
-        }}>
-          <section className="dialog-card manual-payment-dialog" role="dialog" aria-modal="true" aria-labelledby="manual-payment-title">
-            <button className="dialog-close" type="button" aria-label="Đóng" disabled={isPending} onClick={() => setManualPaymentTarget(null)}>×</button>
+
+      {/* 2. TAB CONTROLS */}
+      <nav className="collection-editor-tabs" aria-label="Điều hướng tab biên tập">
+        <button
+          type="button"
+          className={`editor-tab-item ${activeTab === "members" ? "active" : ""}`}
+          onClick={() => setActiveTab("members")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>Thu tiền & Danh sách thành viên</span>
+          <span className="tab-counter">{selectedIds.length}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`editor-tab-item ${activeTab === "settings" ? "active" : ""}`}
+          onClick={() => setActiveTab("settings")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63h.01A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9v.01A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
+          </svg>
+          <span>Thông tin & Cài đặt trận</span>
+          {difference !== 0 ? <span className="tab-warning-dot" title="Phân bổ chưa khớp" /> : null}
+        </button>
+      </nav>
+
+      {/* 3. TAB 1: MEMBERS & COLLECTION MANAGEMENT */}
+      {activeTab === "members" && (
+        <div className="tab-pane-members">
+          {/* Member Toolbar */}
+          <div className="member-toolbar panel">
+            <div className="toolbar-search">
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder="Tìm thành viên theo tên..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+              />
+              {memberSearch && (
+                <button type="button" className="clear-search" onClick={() => setMemberSearch("")}>
+                  ×
+                </button>
+              )}
+            </div>
+
+            <div className="toolbar-filters">
+              <button
+                type="button"
+                className={`filter-chip ${memberFilter === "all" ? "active" : ""}`}
+                onClick={() => setMemberFilter("all")}
+              >
+                Tất cả ({selectedUsers.length})
+              </button>
+              <button
+                type="button"
+                className={`filter-chip chip-debt ${memberFilter === "debt" ? "active" : ""}`}
+                onClick={() => setMemberFilter("debt")}
+              >
+                Chưa trả ({selectedUsers.filter((u) => (paidAmounts[u.id] ?? 0) < (amounts[u.id] ?? 0)).length})
+              </button>
+              <button
+                type="button"
+                className={`filter-chip chip-paid ${memberFilter === "paid" ? "active" : ""}`}
+                onClick={() => setMemberFilter("paid")}
+              >
+                Đã trả ({paidMembersCount})
+              </button>
+            </div>
+
+            <div className="toolbar-actions">
+              <button
+                type="button"
+                className="secondary-button compact-btn select-members-btn"
+                onClick={() => setUserPickerOpen(true)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Chọn / Bỏ người ({selectedIds.length})
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact-btn"
+                title="Chia đều tổng tiền theo slot hiện tại"
+                onClick={() => distributeEvenly(selectedIds, totalAmount)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+                </svg>
+                Chia đều lại
+              </button>
+            </div>
+          </div>
+
+          {/* Members Table */}
+          <section className="panel members-clean-table-wrap">
+            <div className="table-wrap">
+              <table className="members-clean-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>#</th>
+                    <th>Thành viên</th>
+                    {isMatch && <th className="text-center" style={{ width: 120 }}>Số slot</th>}
+                    <th className="text-right" style={{ width: 150 }}>Phải đóng</th>
+                    <th className="text-right" style={{ width: 140 }}>Đã trả</th>
+                    <th className="text-center" style={{ width: 120 }}>Trạng thái</th>
+                    <th className="text-right" style={{ width: 220 }}>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user, index) => {
+                    const member = membersByUser.get(user.id);
+                    const amountPaid = paidAmounts[user.id] ?? 0;
+                    const amountDue = amounts[user.id] ?? 0;
+                    const isPaid = amountPaid >= amountDue && amountDue > 0;
+                    const isPartial = amountPaid > 0 && amountPaid < amountDue;
+                    const isExempt = isMatch && Boolean(feeExemptions[user.id]);
+                    const isExpanded = Boolean(expandedMemberIds[user.id]);
+
+                    const paidBreakdown = paidBreakdowns[user.id] ?? {
+                      footballAmount: amountPaid,
+                      options: [],
+                    };
+                    const totalPaid = getPaidBreakdownTotal(paidBreakdown);
+
+                    return (
+                      <tr
+                        key={user.id}
+                        className={`member-row-clean ${!isPaid && !isExempt ? "has-debt" : ""} ${isExpanded ? "expanded" : ""}`}
+                      >
+                        <td className="text-muted">{index + 1}</td>
+                        <td>
+                          <div className="table-user-cell">
+                            <UserAvatar
+                              name={user.name}
+                              avatarKey={user.avatarKey}
+                              className="user-avatar"
+                              toneIndex={index}
+                            />
+                            <div className="table-user-info">
+                              <strong>{user.name}</strong>
+                              <div className="user-sub-info">
+                                {isExempt && (
+                                  <span className="exempt-badge">Miễn đóng</span>
+                                )}
+                                {isMatch && !isExempt && (Number(goals[user.id] || 0) > 0 || Number(assists[user.id] || 0) > 0) && (
+                                  <small className="stats-indicator">
+                                    {Number(goals[user.id] || 0)} bàn · {Number(assists[user.id] || 0)} kiến tạo
+                                  </small>
+                                )}
+                                {memberNotes[user.id] && (
+                                  <small className="note-indicator">💬 {memberNotes[user.id]}</small>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Slot Stepper */}
+                        {isMatch && (
+                          <td className="text-center">
+                            <div className="slot-stepper-compact">
+                              <button
+                                type="button"
+                                disabled={(slots[user.id] ?? 1) <= 1}
+                                onClick={() => changeSlots(user.id, -1)}
+                              >
+                                −
+                              </button>
+                              <span>{slots[user.id] ?? 1}</span>
+                              <button type="button" onClick={() => changeSlots(user.id, 1)}>
+                                +
+                              </button>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* Phải đóng Input */}
+                        <td className="text-right">
+                          {isExempt ? (
+                            <span className="text-muted font-mono">0 đ</span>
+                          ) : (
+                            <div className="compact-money-cell">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formatMoneyInput(amounts[user.id] ?? 0)}
+                                onChange={(e) =>
+                                  setAmounts((curr) => ({
+                                    ...curr,
+                                    [user.id]: parseMoneyInput(e.target.value),
+                                  }))
+                                }
+                                placeholder="0"
+                              />
+                              <span>đ</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Đã trả */}
+                        <td className="text-right">
+                          {totalPaid > 0 ? (
+                            <div className="paid-amount-wrap">
+                              <strong className="text-success font-mono">
+                                {formatVnd(totalPaid)}
+                              </strong>
+                              {manualPaidUsers[user.id] && (
+                                <span className="manual-chip">Thủ công</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted font-mono">—</span>
+                          )}
+                        </td>
+
+                        {/* Trạng thái */}
+                        <td className="text-center">
+                          {isPaid ? (
+                            <span className="status-badge badge-paid">Đã đủ</span>
+                          ) : isPartial ? (
+                            <span className="status-badge badge-amber">Một phần</span>
+                          ) : isExempt ? (
+                            <span className="status-badge badge-neutral">Miễn phí</span>
+                          ) : (
+                            <span className="status-badge badge-debt">Chưa trả</span>
+                          )}
+                        </td>
+
+                        {/* Thao tác */}
+                        <td className="text-right">
+                          <div className="row-actions-group">
+                            {!isPaid && member && initial?.status !== "DRAFT" ? (
+                              <button
+                                className="manual-pay-action-btn"
+                                type="button"
+                                disabled={isPending}
+                                onClick={() =>
+                                  openManualPayment({
+                                    memberId: member.id,
+                                    userId: user.id,
+                                    name: user.name,
+                                    footballAmount: Math.max(amountDue - amountPaid, 0),
+                                  })
+                                }
+                              >
+                                Xác nhận tiền mặt
+                              </button>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              className={`expand-toggle-btn ${isExpanded ? "active" : ""}`}
+                              onClick={() => toggleExpandMember(user.id)}
+                              title="Chi tiết bàn thắng, kiến tạo, ghi chú"
+                            >
+                              <span>{isExpanded ? "Thu gọn" : "Chi tiết"}</span>
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d={isExpanded ? "m18 15-6-6-6 6" : "m6 9 6 6 6-6"} />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {/* Collapsible Details Panel */}
+                          {isExpanded && (
+                            <div className="member-expanded-box">
+                              {isMatch && (
+                                <div className="expanded-section">
+                                  <label className="check-label">
+                                    <input
+                                      type="checkbox"
+                                      checked={feeExemptions[user.id] ?? false}
+                                      onChange={(e) => {
+                                        setFeeExemptions((curr) => ({
+                                          ...curr,
+                                          [user.id]: e.target.checked,
+                                        }));
+                                        if (e.target.checked) {
+                                          setAmounts((curr) => ({ ...curr, [user.id]: 0 }));
+                                        }
+                                      }}
+                                    />
+                                    <span>Miễn đóng trận này</span>
+                                  </label>
+                                  {feeExemptions[user.id] && (
+                                    <input
+                                      type="text"
+                                      className="plain-input compact-input"
+                                      placeholder="Lý do miễn đóng..."
+                                      value={exemptionReasons[user.id] ?? ""}
+                                      onChange={(e) =>
+                                        setExemptionReasons((curr) => ({
+                                          ...curr,
+                                          [user.id]: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  )}
+                                </div>
+                              )}
+
+                              {isMatch && (
+                                <div className="expanded-stats-grid">
+                                  <label>
+                                    <span>Bàn thắng:</span>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={goals[user.id] ?? "0"}
+                                      onFocus={(e) => e.currentTarget.select()}
+                                      onChange={(e) =>
+                                        setGoals((curr) => ({
+                                          ...curr,
+                                          [user.id]: sanitizeStatInput(e.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <label>
+                                    <span>Kiến tạo:</span>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={assists[user.id] ?? "0"}
+                                      onFocus={(e) => e.currentTarget.select()}
+                                      onChange={(e) =>
+                                        setAssists((curr) => ({
+                                          ...curr,
+                                          [user.id]: sanitizeStatInput(e.target.value),
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                              )}
+
+                              <div className="expanded-note-field">
+                                <span>Ghi chú riêng:</span>
+                                <input
+                                  type="text"
+                                  placeholder={`Ghi chú cho ${user.name}...`}
+                                  value={memberNotes[user.id] ?? ""}
+                                  onChange={(e) =>
+                                    setMemberNotes((curr) => ({
+                                      ...curr,
+                                      [user.id]: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                className="remove-member-link"
+                                onClick={() => toggleUser(user.id)}
+                              >
+                                Xóa khỏi khoản thu này
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {!filteredUsers.length && (
+              <div className="table-empty-box">
+                <p>Không tìm thấy thành viên phù hợp với bộ lọc.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* 4. TAB 2: SETTINGS & MATCH CONFIG */}
+      {activeTab === "settings" && (
+        <div className="tab-pane-settings">
+          <section className="panel editor-panel">
+            <div className="editor-section-heading">
+              <div>
+                <h2>Thông tin khoản thu</h2>
+                <p>Cập nhật tên, thời gian, đối thủ và tỉ số trận đấu.</p>
+              </div>
+            </div>
+
+            <div className="editor-fields">
+              <div className="field-group full-field">
+                <label>Loại khoản thu</label>
+                <div className="collection-kind-readonly">
+                  <strong>{isMatch ? "Trận đấu" : "Khoản thu khác"}</strong>
+                  <small>Loại khoản thu không thể thay đổi sau khi tạo.</small>
+                </div>
+              </div>
+
+              <div className="field-group full-field">
+                <label htmlFor="collection-title">Tên khoản thu</label>
+                <input
+                  id="collection-title"
+                  className="plain-input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={isMatch ? "Ví dụ: Sân Thủy Lợi tối thứ 5" : "Ví dụ: Tiền áo đấu 2026"}
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="field-group full-field">
+                <label htmlFor="played-at">{isMatch ? "Ngày đá" : "Ngày áp dụng"}</label>
+                <input
+                  id="played-at"
+                  className="plain-input"
+                  type="date"
+                  value={playedAt}
+                  onChange={(e) => setPlayedAt(e.target.value)}
+                />
+              </div>
+
+              {isMatch && (
+                <>
+                  <div className="field-group full-field">
+                    <label htmlFor="opponent">Đối thủ</label>
+                    <select
+                      id="opponent"
+                      className="plain-input"
+                      value={addingOpponent ? "__new" : opponentId}
+                      onChange={(e) => {
+                        const create = e.target.value === "__new";
+                        setAddingOpponent(create);
+                        if (!create) setOpponentId(e.target.value);
+                      }}
+                    >
+                      <option value="">Chọn đối thủ</option>
+                      {opponents.map((opp) => (
+                        <option value={opp.id} key={opp.id}>
+                          {opp.name}
+                        </option>
+                      ))}
+                      <option value="__new">+ Thêm đối thủ mới</option>
+                    </select>
+                  </div>
+
+                  {addingOpponent && (
+                    <div className="field-group full-field">
+                      <label htmlFor="new-opponent">Tên đối thủ mới</label>
+                      <input
+                        id="new-opponent"
+                        className="plain-input"
+                        value={newOpponentName}
+                        maxLength={100}
+                        placeholder="Nhập tên đội đối thủ..."
+                        onChange={(e) => setNewOpponentName(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <div className="field-group">
+                    <label htmlFor="our-score">Bàn FC Đông Đô</label>
+                    <input
+                      id="our-score"
+                      className="plain-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={3}
+                      value={ourScore}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => setOurScore(sanitizeStatInput(e.target.value))}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="field-group">
+                    <label htmlFor="opponent-score">Bàn đối thủ</label>
+                    <input
+                      id="opponent-score"
+                      className="plain-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={3}
+                      value={opponentScore}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => setOpponentScore(sanitizeStatInput(e.target.value))}
+                      placeholder="0"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="field-group full-field">
+                <label htmlFor="total-amount">Tổng tiền cần thu</label>
+                <div className="money-input">
+                  <input
+                    id="total-amount"
+                    type="text"
+                    inputMode="numeric"
+                    value={formatMoneyInput(totalAmount)}
+                    onChange={(e) => changeTotal(parseMoneyInput(e.target.value))}
+                    placeholder="0"
+                  />
+                  <span>VNĐ</span>
+                </div>
+              </div>
+
+              {/* Charge Options */}
+              <div className="field-group full-field charge-options-field">
+                <div className="charge-options-heading">
+                  <div>
+                    <label>Khoản bổ sung tùy chọn</label>
+                    <small className="field-hint">
+                      Ví dụ: tiền nước, phụ phí... Người dùng có thể tích chọn thêm khi quét QR.
+                    </small>
+                  </div>
+                  <button type="button" className="add-option-btn" onClick={addChargeOption}>
+                    + Thêm tùy chọn
+                  </button>
+                </div>
+
+                <div className="charge-option-list">
+                  {chargeOptions.map((opt, idx) => (
+                    <div className="charge-option-row" key={opt.id}>
+                      <span className="charge-option-order">{idx + 1}</span>
+                      <input
+                        className="plain-input"
+                        value={opt.name}
+                        onChange={(e) => updateChargeOption(opt.id, { name: e.target.value })}
+                        placeholder="Ví dụ: Tiền nước"
+                        maxLength={100}
+                      />
+                      <div className="money-input">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formatMoneyInput(opt.defaultAmount)}
+                          onChange={(e) =>
+                            updateChargeOption(opt.id, {
+                              defaultAmount: parseMoneyInput(e.target.value),
+                            })
+                          }
+                          placeholder="0"
+                        />
+                        <span>VNĐ</span>
+                      </div>
+                      <label className="charge-option-check">
+                        <input
+                          type="checkbox"
+                          checked={opt.autoSelected}
+                          onChange={(e) =>
+                            updateChargeOption(opt.id, { autoSelected: e.target.checked })
+                          }
+                        />
+                        <span>Tự tích</span>
+                      </label>
+                      <label className="charge-option-check">
+                        <input
+                          type="checkbox"
+                          checked={opt.allowCustomAmount}
+                          onChange={(e) =>
+                            updateChargeOption(opt.id, { allowCustomAmount: e.target.checked })
+                          }
+                        />
+                        <span>Cho sửa</span>
+                      </label>
+                      <button
+                        className="charge-option-remove"
+                        type="button"
+                        onClick={() =>
+                          setChargeOptions((curr) => curr.filter((item) => item.id !== opt.id))
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {!chargeOptions.length && (
+                    <div className="charge-option-empty">
+                      Chưa có khoản bổ sung nào. Thành viên chỉ đóng số tiền chính.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="field-group full-field">
+                <label htmlFor="collection-note">Ghi chú chung</label>
+                <textarea
+                  id="collection-note"
+                  className="plain-input"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Ghi chú nội dung, thời hạn thanh toán..."
+                  maxLength={500}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Delete Collection Section */}
+          {initial && (
+            <section className="collection-delete-zone panel">
+              <div>
+                <strong>Xóa khoản thu</strong>
+                <p>Khoản thu sẽ bị xóa khỏi hệ thống. Các giao dịch cũ vẫn được lưu trong lịch sử.</p>
+              </div>
+              <button
+                className="collection-delete-button"
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setDeleteError("");
+                  setDeleteConfirmOpen(true);
+                }}
+              >
+                Xóa khoản thu
+              </button>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* 5. MODAL: MEMBER PICKER (TINH GỌN, KHÔNG CHIẾM DIỆN TÍCH TRANG CHÍNH) */}
+      {userPickerOpen && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setUserPickerOpen(false);
+          }}
+        >
+          <div className="dialog-card member-picker-modal">
+            <div className="dialog-head">
+              <div>
+                <h2>Chọn người tham gia</h2>
+                <p>Đã chọn {selectedIds.length} / {users.length} thành viên</p>
+              </div>
+              <button
+                type="button"
+                className="dialog-close"
+                onClick={() => setUserPickerOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="picker-search-bar">
+              <input
+                type="text"
+                placeholder="Tìm thành viên..."
+                value={userPickerSearch}
+                onChange={(e) => setUserPickerSearch(e.target.value)}
+              />
+              <button type="button" className="select-all-btn" onClick={selectAll}>
+                {selectedIds.length === users.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              </button>
+            </div>
+
+            <div className="picker-user-grid">
+              {users
+                .filter((u) => u.name.toLowerCase().includes(userPickerSearch.toLowerCase()))
+                .map((u, i) => {
+                  const isChecked = selectedIds.includes(u.id);
+                  return (
+                    <label
+                      key={u.id}
+                      className={`picker-user-card ${isChecked ? "selected" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleUser(u.id)}
+                      />
+                      <UserAvatar
+                        name={u.name}
+                        avatarKey={u.avatarKey}
+                        className="user-avatar"
+                        toneIndex={i}
+                      />
+                      <span>{u.name}</span>
+                      <i>{isChecked ? "✓" : ""}</i>
+                    </label>
+                  );
+                })}
+            </div>
+
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setUserPickerOpen(false)}
+              >
+                Xong ({selectedIds.length} người)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL: MANUAL PAYMENT RECORD */}
+      {manualPaymentTarget && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !isPending) setManualPaymentTarget(null);
+          }}
+        >
+          <section
+            className="dialog-card manual-payment-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-payment-title"
+          >
+            <button
+              className="dialog-close"
+              type="button"
+              aria-label="Đóng"
+              disabled={isPending}
+              onClick={() => setManualPaymentTarget(null)}
+            >
+              ×
+            </button>
             <div className="manual-payment-heading">
               <span aria-hidden="true">✓</span>
               <div>
-                <h2 id="manual-payment-title">Xác nhận tiền mặt</h2>
+                <h2 id="manual-payment-title">Ghi nhận tiền mặt</h2>
                 <p>{manualPaymentTarget.name}</p>
               </div>
             </div>
             <div className="manual-payment-breakdown">
-              <div><span>Khoản chính còn lại</span><strong>{formatVnd(manualPaymentTarget.footballAmount)}</strong></div>
+              <div>
+                <span>Khoản chính còn lại</span>
+                <strong>{formatVnd(manualPaymentTarget.footballAmount)}</strong>
+              </div>
               {manualChargeOptions.map((option) => {
                 const selection = manualOptionSelections[option.id];
                 return (
                   <div className="manual-option-row" key={option.id}>
-                    <label><input type="checkbox" checked={selection?.included ?? false} onChange={(event) => setManualOptionSelections((current) => ({ ...current, [option.id]: { included: event.target.checked, amount: current[option.id]?.amount ?? option.defaultAmount } }))} /><span>{option.name}</span></label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selection?.included ?? false}
+                        onChange={(event) =>
+                          setManualOptionSelections((current) => ({
+                            ...current,
+                            [option.id]: {
+                              included: event.target.checked,
+                              amount: current[option.id]?.amount ?? option.defaultAmount,
+                            },
+                          }))
+                        }
+                      />
+                      <span>{option.name}</span>
+                    </label>
                     {selection?.included && option.allowCustomAmount ? (
-                      <div className="water-money-input"><input type="text" inputMode="numeric" value={formatMoneyInput(selection.amount)} onChange={(event) => setManualOptionSelections((current) => ({ ...current, [option.id]: { included: true, amount: parseMoneyInput(event.target.value) } }))} /><span>đ</span></div>
-                    ) : <strong>{formatVnd(selection?.included ? option.defaultAmount : 0)}</strong>}
+                      <div className="water-money-input">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formatMoneyInput(selection.amount)}
+                          onChange={(event) =>
+                            setManualOptionSelections((current) => ({
+                              ...current,
+                              [option.id]: {
+                                included: true,
+                                amount: parseMoneyInput(event.target.value),
+                              },
+                            }))
+                          }
+                        />
+                        <span>đ</span>
+                      </div>
+                    ) : (
+                      <strong>
+                        {formatVnd(selection?.included ? option.defaultAmount : 0)}
+                      </strong>
+                    )}
                   </div>
                 );
               })}
-              {!manualChargeOptions.length ? <div className="manual-option-row"><span>Không còn tùy chọn chưa thanh toán</span></div> : null}
+              {!manualChargeOptions.length && (
+                <div className="manual-option-row">
+                  <span>Không còn tùy chọn chưa thanh toán</span>
+                </div>
+              )}
             </div>
-            <div className="manual-payment-amount"><span>Tổng số tiền ghi nhận</span><strong>{formatVnd(manualPaymentTarget.footballAmount + manualOptionsTotal)}</strong></div>
+            <div className="manual-payment-amount">
+              <span>Tổng số tiền ghi nhận</span>
+              <strong>
+                {formatVnd(manualPaymentTarget.footballAmount + manualOptionsTotal)}
+              </strong>
+            </div>
             <p className="manual-payment-note">Mã QR đang chờ sẽ tự động được hủy.</p>
-            {manualPaymentError ? <div className="editor-error manual-payment-error" role="alert">! {manualPaymentError}</div> : null}
+            {manualPaymentError && (
+              <div className="editor-error manual-payment-error" role="alert">
+                ! {manualPaymentError}
+              </div>
+            )}
             <div className="dialog-actions">
-              <button className="secondary-button" type="button" disabled={isPending} onClick={() => setManualPaymentTarget(null)}>Hủy</button>
-              <button className="primary-button" type="button" disabled={isPending} onClick={confirmManualPayment}>{isPending ? "Đang ghi nhận..." : "Xác nhận"}</button>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={isPending}
+                onClick={() => setManualPaymentTarget(null)}
+              >
+                Hủy
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={isPending}
+                onClick={confirmManualPayment}
+              >
+                {isPending ? "Đang ghi nhận..." : "Xác nhận tiền mặt"}
+              </button>
             </div>
           </section>
         </div>
-      ) : null}
-      {initial ? (
-        <section className="collection-delete-zone">
-          <div>
-            <strong>Xóa khoản thu</strong>
-            <p>Khoản thu sẽ biến mất khỏi danh sách; lịch sử thanh toán vẫn được giữ trong Giao dịch.</p>
-          </div>
-          <button className="collection-delete-button" type="button" disabled={isPending} onClick={() => {
-            setDeleteError("");
-            setDeleteConfirmOpen(true);
-          }}>Xóa khoản thu</button>
-        </section>
-      ) : null}
-      {deleteConfirmOpen && initial ? (
-        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !isPending) setDeleteConfirmOpen(false);
-        }}>
-          <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="delete-collection-title">
+      )}
+
+      {/* 7. MODAL: DELETE COLLECTION CONFIRMATION */}
+      {deleteConfirmOpen && initial && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !isPending) setDeleteConfirmOpen(false);
+          }}
+        >
+          <section
+            className="dialog-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-collection-title"
+          >
             <div className="dialog-icon danger">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+              </svg>
             </div>
             <div className="dialog-heading">
               <h2 id="delete-collection-title">Xóa khoản thu?</h2>
-              <p>Bạn có chắc muốn xóa <strong>{initial.title}</strong>? Các mã QR đang chờ liên quan sẽ bị hủy và thao tác này không thể hoàn tác.</p>
+              <p>
+                Bạn có chắc muốn xóa <strong>{initial.title}</strong>? Các mã QR đang chờ liên quan
+                sẽ bị hủy và thao tác này không thể hoàn tác.
+              </p>
             </div>
-            {deleteError ? <div className="editor-error delete-collection-error" role="alert">! {deleteError}</div> : null}
+            {deleteError && (
+              <div className="editor-error delete-collection-error" role="alert">
+                ! {deleteError}
+              </div>
+            )}
             <div className="dialog-actions">
-              <button className="secondary-button" type="button" disabled={isPending} onClick={() => setDeleteConfirmOpen(false)}>Hủy</button>
-              <button className="danger-button" type="button" disabled={isPending} onClick={confirmDeleteCollection}>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={isPending}
+                onClick={() => setDeleteConfirmOpen(false)}
+              >
+                Hủy
+              </button>
+              <button
+                className="danger-button"
+                type="button"
+                disabled={isPending}
+                onClick={confirmDeleteCollection}
+              >
                 {isPending ? <span className="spinner" aria-hidden="true" /> : null}
                 {isPending ? "Đang xóa..." : "Xóa khoản thu"}
               </button>
             </div>
           </section>
         </div>
-      ) : null}
-      <div className="editor-footer">
-        <Link className="secondary-button" href="/admin/collections">Hủy</Link>
-        <div>
-          {initial?.status !== "PUBLISHED" ? <button className="secondary-button" type="button" disabled={isPending} onClick={() => save("DRAFT")}>Lưu bản nháp</button> : null}
-          <button className="primary-button preview-button" type="button" onClick={openPreview}>Xem trước <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
