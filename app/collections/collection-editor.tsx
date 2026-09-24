@@ -743,7 +743,7 @@ export function CollectionEditor({
                     {isMatch && <th className="text-center" style={{ width: 120 }}>Số slot</th>}
                     <th className="text-right" style={{ width: 150 }}>Phải đóng</th>
                     <th className="text-right" style={{ width: 140 }}>Đã trả</th>
-                    <th className="text-center" style={{ width: 120 }}>Trạng thái</th>
+                    <th className="text-center" style={{ width: 130 }}>Trạng thái</th>
                     <th className="text-right" style={{ width: 220 }}>Thao tác</th>
                   </tr>
                 </thead>
