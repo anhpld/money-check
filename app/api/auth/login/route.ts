@@ -23,10 +23,15 @@ export async function POST(request: NextRequest) {
     return relativeRedirect(`/login?${searchParams.toString()}`);
   }
 
+  const isHttps =
+    request.nextUrl.protocol === "https:" ||
+    request.headers.get("x-forwarded-proto") === "https" ||
+    (Boolean(process.env.APP_URL) && (process.env.APP_URL?.startsWith("https://") ?? false));
+
   const response = relativeRedirect(destination);
   response.cookies.set(ADMIN_SESSION_COOKIE, createAdminSession(), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttps,
     sameSite: "lax",
     path: "/",
     maxAge: ADMIN_SESSION_MAX_AGE,
