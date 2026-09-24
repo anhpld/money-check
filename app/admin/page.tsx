@@ -108,8 +108,8 @@ export default async function AdminOverviewPage({
         <section className="panel overview-member-section">
           <div className="overview-member-head">
             <div>
-              <h2>Chi tiết đóng tiền & thành tích thành viên</h2>
-              <p>Tổng hợp chi phí nghĩa vụ và đóng góp trận đấu trong kỳ đã chọn.</p>
+              <h2>Chi tiết thành viên</h2>
+              <p>Thống kê số trận ra sân, số tiền đã bỏ ra và số tiền còn nợ trong kỳ.</p>
             </div>
           </div>
 
@@ -120,11 +120,7 @@ export default async function AdminOverviewPage({
                   <th style={{ width: 44 }}>#</th>
                   <th>Thành viên</th>
                   <th className="text-center">Ra sân</th>
-                  <th className="text-center">Bàn thắng</th>
-                  <th className="text-center">Kiến tạo</th>
-                  <th className="text-center">Đóng góp (G+A)</th>
-                  <th className="text-right">Cần nộp</th>
-                  <th className="text-right">Đã nộp</th>
+                  <th className="text-right">Đã đóng</th>
                   <th className="text-right">Còn nợ</th>
                   <th className="text-center">Trạng thái</th>
                 </tr>
@@ -145,15 +141,11 @@ export default async function AdminOverviewPage({
                       </div>
                     </td>
                     <td className="text-center">
-                      <strong>{member.appearances}</strong>
+                      <strong>{member.appearances}</strong> trận
                     </td>
-                    <td className="text-center">{member.goals}</td>
-                    <td className="text-center">{member.assists}</td>
-                    <td className="text-center">
-                      <span className="contribution-pill">{member.contributions}</span>
+                    <td className="text-right text-success font-semibold">
+                      {formatVnd(member.amountPaid)}
                     </td>
-                    <td className="text-right">{formatVnd(member.amountDue)}</td>
-                    <td className="text-right text-success">{formatVnd(member.amountPaid)}</td>
                     <td className="text-right">
                       <strong className={member.outstanding > 0 ? "text-debt" : "text-muted"}>
                         {formatVnd(member.outstanding)}
@@ -162,8 +154,8 @@ export default async function AdminOverviewPage({
                     <td className="text-center">
                       {member.outstanding > 0 ? (
                         <span className="status-badge badge-debt">Còn nợ</span>
-                      ) : member.amountDue > 0 ? (
-                        <span className="status-badge badge-paid">Hoàn thành</span>
+                      ) : member.amountPaid > 0 ? (
+                        <span className="status-badge badge-paid">Đã thanh toán</span>
                       ) : (
                         <span className="status-badge badge-neutral">Không nợ</span>
                       )}

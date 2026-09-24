@@ -186,7 +186,7 @@ export function OverviewCharts({ chartSessions, chartTopMembers }: OverviewChart
               <p>Chưa có dữ liệu trận đấu và thành viên tham gia trong thời gian này.</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={340}>
               <BarChart
                 layout="vertical"
                 data={chartTopMembers}
@@ -216,14 +216,21 @@ export function OverviewCharts({ chartSessions, chartTopMembers }: OverviewChart
                   name="Trận ra sân"
                   fill="#12624c"
                   radius={[0, 4, 4, 0]}
-                  maxBarSize={22}
+                  maxBarSize={16}
                 />
                 <Bar
-                  dataKey="contributions"
-                  name="Đóng góp (G+A)"
-                  fill="#eab308"
+                  dataKey="goals"
+                  name="Bàn thắng"
+                  fill="#2563eb"
                   radius={[0, 4, 4, 0]}
-                  maxBarSize={22}
+                  maxBarSize={16}
+                />
+                <Bar
+                  dataKey="assists"
+                  name="Kiến tạo"
+                  fill="#10b981"
+                  radius={[0, 4, 4, 0]}
+                  maxBarSize={16}
                 />
               </BarChart>
             </ResponsiveContainer>
