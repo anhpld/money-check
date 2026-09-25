@@ -14,9 +14,10 @@ async function getUsers(): Promise<{ users: UserItem[]; databaseError: boolean }
         avatarKey: true,
         isActive: true,
         personaPrompt: true,
+        profile: true,
         memories: {
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 15,
           select: { id: true, fact: true, createdAt: true },
         },
       },

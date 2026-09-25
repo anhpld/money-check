@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addUserMemory, deleteUserMemory, updateUserPersona, type UserActionResult } from "@/app/actions";
+import {
+  addUserMemory,
+  deleteUserMemory,
+  updateUserPersona,
+  updateUserProfile,
+  type UserActionResult,
+} from "@/app/actions";
 import { type UserItem } from "@/app/components/users-manager";
 
 const PERSONA_SUGGESTIONS = [
@@ -39,6 +45,7 @@ export function UserAiModal({
   user: UserItem;
   onClose: () => void;
 }) {
+  const [profile, setProfile] = useState(user.profile || "");
   const [persona, setPersona] = useState(user.personaPrompt || "");
   const [memories, setMemories] = useState(user.memories || []);
   const [newFact, setNewFact] = useState("");
@@ -48,6 +55,13 @@ export function UserAiModal({
   function showFeedback(status: string, message: string) {
     setLocalFeedback({ status, message });
     setTimeout(() => setLocalFeedback(null), 3500);
+  }
+
+  function handleSaveProfile() {
+    startTransition(async () => {
+      const res = await updateUserProfile(user.id, profile);
+      showFeedback(res.status, res.message);
+    });
   }
 
   function handleSavePersona() {
@@ -83,6 +97,15 @@ export function UserAiModal({
     });
   }
 
+  function getMemoryStatus(createdAt: Date | string) {
+    const diffHours = (Date.now() - new Date(createdAt).getTime()) / (1000 * 3600);
+    if (diffHours <= 72) {
+      const remainHours = Math.max(1, Math.round(72 - diffHours));
+      return { active: true, text: `Còn ${remainHours}h` };
+    }
+    return { active: false, text: "Đã hết hạn (>3 ngày)" };
+  }
+
   return (
     <div
       className="dialog-backdrop"
@@ -95,12 +118,12 @@ export function UserAiModal({
         <div className="dialog-heading">
           <div className="user-ai-modal-header">
             <div className="modal-header-top">
-              <span className="user-ai-badge">🧠 HỒ SƠ AI & KÝ ỨC</span>
+              <span className="user-ai-badge">🧠 HỒ SƠ AI & BỘ NHỚ 3 TẦNG</span>
               <button type="button" className="modal-close-icon" onClick={onClose} aria-label="Đóng">✕</button>
             </div>
             <h2>{user.name}</h2>
             <p>
-              Định hình thái độ của bot Vũ Quang Bình khi đối đáp với <strong>{user.name}</strong> và quản lý ký ức đã tự học.
+              Hồ sơ cá nhân chính thống (user.md), tính cách giao tiếp (soul.md) và ký ức ngắn hạn 3 ngày.
             </p>
           </div>
           {localFeedback ? (
@@ -112,11 +135,49 @@ export function UserAiModal({
         </div>
 
         <div className="user-ai-modal-body">
-          {/* Section 1: Persona */}
+          {/* TẦNG 1: USER PROFILE (CHÍNH THỐNG - CHỈ ĐỨC ANH SỬA HOẶC ADMIN) */}
           <div className="ai-section">
             <div className="ai-section-title">
-              <strong>Thái độ của Bot đối với {user.name}</strong>
-              <small>Chỉ định cách bot xưng hô, giọng điệu và thái độ riêng.</small>
+              <div className="ai-title-row">
+                <strong>1. Hồ sơ Cá nhân (User Profile - Chính thức)</strong>
+                <span className="ai-tag-badge official">👑 Do Đội trưởng Đức Anh set</span>
+              </div>
+              <small>
+                Vị trí thi đấu, sở trường, số áo, vai trò trong đội... Chỉ Anh Đức Anh mới có quyền ra lệnh cho bot thay đổi (bắt buộc tag bot).
+              </small>
+            </div>
+
+            <textarea
+              className="plain-input persona-textarea"
+              rows={2}
+              value={profile}
+              onChange={(e) => setProfile(e.target.value)}
+              placeholder="Ví dụ: Vị trí: Tiền đạo cắm, sở trường sút xa, số áo 9, đội phó..."
+              disabled={isPending}
+            />
+
+            <div className="ai-section-actions">
+              <button
+                type="button"
+                className="primary-button btn-save-persona"
+                onClick={handleSaveProfile}
+                disabled={isPending}
+              >
+                {isPending ? "Đang lưu..." : "Lưu Hồ sơ"}
+              </button>
+            </div>
+          </div>
+
+          {/* TẦNG 2: SOUL (TÍNH CÁCH & PHONG CÁCH GIAO TIẾP - LÂU DÀI, TỰ TIẾN HÓA) */}
+          <div className="ai-section">
+            <div className="ai-section-title">
+              <div className="ai-title-row">
+                <strong>2. Tính cách & Phong cách giao tiếp (Soul - Lâu dài)</strong>
+                <span className="ai-tag-badge soul">✨ Tự học ngầm + Tag</span>
+              </div>
+              <small>
+                Định hình tính nết của {user.name} để bot đối đáp (học từ tag bot và 20 tin gần nhất, lưu lâu dài).
+              </small>
             </div>
 
             <div className="persona-chips">
@@ -134,11 +195,11 @@ export function UserAiModal({
             </div>
 
             <textarea
-              className="plain-input persona-textarea"
-              rows={3}
+              className="persona-textarea"
+              rows={2}
               value={persona}
               onChange={(e) => setPersona(e.target.value)}
-              placeholder="Ví dụ: Gọi là Sếp, nịnh bợ, hay trêu đùa về kèo bia sau trận..."
+              placeholder="Ví dụ: Thích cà khịa, hay nói nhiều, hay chém gió về kèo bóng..."
               disabled={isPending}
             />
 
@@ -149,17 +210,20 @@ export function UserAiModal({
                 onClick={handleSavePersona}
                 disabled={isPending}
               >
-                {isPending ? "Đang lưu..." : "Lưu thái độ"}
+                {isPending ? "Đang lưu..." : "Lưu Tính cách (Soul)"}
               </button>
             </div>
           </div>
 
-          {/* Section 2: Memories */}
+          {/* TẦNG 3: KÝ ỨC SỰ VIỆC & LỜI HỨA (HẠN 3 NGÀY) */}
           <div className="ai-section">
             <div className="ai-section-title">
-              <strong>Ký ức bot đã tự học ({memories.length})</strong>
+              <div className="ai-title-row">
+                <strong>3. Ký ức Sự việc & Lời hứa ({memories.length})</strong>
+                <span className="ai-tag-badge temp">⏳ Hạn 3 ngày</span>
+              </div>
               <small>
-                Tự động ghi nhớ từ các tin nhắn chat trong nhóm (lời hứa, chấn thương, thói quen...).
+                Trích xuất sự việc nhất thời, lời hứa suông (bận việc, đau chân, hẹn nộp tiền...). Tự động hết hạn sau 3 ngày.
               </small>
             </div>
 
@@ -167,7 +231,7 @@ export function UserAiModal({
               <input
                 type="text"
                 className="plain-input memory-input"
-                placeholder="Thêm ghi nhớ thủ công (ví dụ: Hay đau gối, sở trường tiền đạo...)"
+                placeholder="Thêm sự việc thủ công (ví dụ: Vừa đi công tác về, hẹn thứ 6 bắn quỹ...)"
                 value={newFact}
                 onChange={(e) => setNewFact(e.target.value)}
                 onKeyDown={(e) => {
@@ -190,26 +254,34 @@ export function UserAiModal({
 
             <div className="memory-list">
               {memories.length > 0 ? (
-                memories.map((m) => (
-                  <div key={m.id} className="memory-item">
-                    <div className="memory-content">
-                      <span className="memory-bullet">•</span>
-                      <p>{m.fact}</p>
+                memories.map((m) => {
+                  const status = getMemoryStatus(m.createdAt);
+                  return (
+                    <div key={m.id} className={`memory-item ${!status.active ? "expired" : ""}`}>
+                      <div className="memory-content">
+                        <span className="memory-bullet">•</span>
+                        <div className="memory-text-wrap">
+                          <p>{m.fact}</p>
+                          <span className={`memory-time-badge ${status.active ? "active" : "expired"}`}>
+                            {status.text}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="memory-delete-btn"
+                        title="Xóa ký ức này"
+                        onClick={() => handleDeleteMemory(m.id)}
+                        disabled={isPending}
+                      >
+                        ✕
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="memory-delete-btn"
-                      title="Xóa ký ức này"
-                      onClick={() => handleDeleteMemory(m.id)}
-                      disabled={isPending}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="memory-empty">
-                  <em>Chưa có ký ức nào được ghi nhận. Bot sẽ tự học khi thành viên này chat trong nhóm!</em>
+                  <em>Chưa có sự việc nào trong 3 ngày qua. Bot sẽ tự ghi nhớ khi có trao đổi trong nhóm!</em>
                 </div>
               )}
             </div>

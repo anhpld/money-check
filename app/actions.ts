@@ -151,10 +151,30 @@ export async function updateUserPersona(
       data: { personaPrompt: personaPrompt.trim() || null },
     });
     revalidatePath("/admin/users");
-    return { status: "success", message: "Đã cập nhật tính cách AI cho người dùng." };
+    return { status: "success", message: "Đã cập nhật tính cách AI (Soul) cho người dùng." };
   } catch (error) {
     console.error("Lỗi cập nhật persona:", error);
     return { status: "error", message: "Không thể lưu tính cách. Vui lòng thử lại." };
+  }
+}
+
+export async function updateUserProfile(
+  userId: string,
+  profile: string,
+): Promise<UserActionResult> {
+  if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  if (!userId) return { status: "error", message: "Không tìm thấy người dùng." };
+
+  try {
+    await getPrisma().user.update({
+      where: { id: userId },
+      data: { profile: profile.trim() || null },
+    });
+    revalidatePath("/admin/users");
+    return { status: "success", message: "Đã cập nhật Hồ sơ cá nhân cho người dùng." };
+  } catch (error) {
+    console.error("Lỗi cập nhật profile:", error);
+    return { status: "error", message: "Không thể lưu hồ sơ cá nhân. Vui lòng thử lại." };
   }
 }
 

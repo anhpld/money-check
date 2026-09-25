@@ -13,6 +13,7 @@ model User {
   avatarKey       String?
   isActive        Boolean          @default(true)
   personaPrompt   String?
+  profile         String?
   sessionMembers  SessionMember[]
   paymentRequests PaymentRequest[]
   memories        UserMemory[]

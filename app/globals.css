@@ -1410,7 +1410,8 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .icon-button.ai:hover { background: #f5f3ff; color: #7c3aed; }
 .mobile-user-action.ai { background: #f5f3ff; color: #7c3aed; font-weight: 700; }
 
-.user-ai-modal { max-width: 580px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.dialog-card.user-ai-modal { width: min(100%, 640px); max-width: 640px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; padding: 20px 24px 16px; box-sizing: border-box; }
+.user-ai-modal .dialog-heading { flex-shrink: 0; margin-bottom: 8px; }
 .user-ai-modal-header { display: flex; flex-direction: column; gap: 4px; }
 .modal-header-top { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .modal-close-icon { border: none; background: transparent; color: #64748b; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: .15s; }
@@ -1419,11 +1420,21 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .user-ai-toast { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; animation: fadeIn .2s ease; }
 .user-ai-toast.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
 .user-ai-toast.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-.user-ai-modal-body { overflow-y: auto; padding: 0 4px 12px; display: flex; flex-direction: column; gap: 20px; }
+.user-ai-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 8px 12px 2px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: #94a3b8 #f1f5f9; }
+.user-ai-modal-body::-webkit-scrollbar { width: 8px; }
+.user-ai-modal-body::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+.user-ai-modal-body::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+.user-ai-modal .dialog-actions { flex-shrink: 0; margin-top: 10px; padding-top: 12px; border-top: 1px solid #cbd5e1; display: flex; justify-content: flex-end; }
 
 .ai-section { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+.ai-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .ai-section-title strong { display: block; font-size: 13.5px; color: var(--ink); }
 .ai-section-title small { display: block; font-size: 11.5px; color: #64748b; margin-top: 1px; }
+
+.ai-tag-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; }
+.ai-tag-badge.official { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.ai-tag-badge.soul { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+.ai-tag-badge.temp { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 
 .persona-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .persona-chip { font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 20px; border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; transition: .15s ease; }
@@ -1438,9 +1449,14 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 
 .memory-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
 .memory-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; }
+.memory-item.expired { opacity: 0.65; background: #f8fafc; }
 .memory-content { display: flex; align-items: flex-start; gap: 8px; flex: 1; }
 .memory-bullet { color: #8b5cf6; font-weight: 800; font-size: 14px; line-height: 1.2; }
-.memory-content p { margin: 0; font-size: 12.5px; color: var(--ink); line-height: 1.4; word-break: break-word; }
+.memory-text-wrap { display: flex; flex-direction: column; gap: 3px; }
+.memory-text-wrap p { margin: 0; font-size: 12.5px; color: var(--ink); line-height: 1.4; word-break: break-word; }
+.memory-time-badge { font-size: 10px; font-weight: 700; align-self: flex-start; padding: 1px 6px; border-radius: 4px; }
+.memory-time-badge.active { background: #dcfce7; color: #166534; }
+.memory-time-badge.expired { background: #f1f5f9; color: #64748b; }
 .memory-delete-btn { border: none; background: transparent; color: #94a3b8; font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: .15s; }
 .memory-delete-btn:hover { color: #ef4444; background: #fee2e2; }
 .memory-empty { padding: 12px; text-align: center; color: #64748b; font-size: 12px; }

@@ -19,6 +19,7 @@ export type UserItem = {
   avatarKey: string | null;
   isActive: boolean;
   personaPrompt?: string | null;
+  profile?: string | null;
   memories?: UserMemoryItem[];
 };
 
