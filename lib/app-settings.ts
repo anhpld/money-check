@@ -28,11 +28,13 @@ export const LLM_SETTING_KEYS = {
   prodChatUrl: "prod-chat-url",
   aiDebtReminderEnabled: "ai-debt-reminder-enabled",
   debtReminderPrompt: "debt-reminder-prompt",
+  reasoningEffort: "reasoning-effort",
 } as const;
 
 export const DEFAULT_LLM_SETTINGS = {
   apiUrl: "https://raykllx.abc-tunnel.us/v1",
   model: "cx/gpt-5.6-luna",
+  reasoningEffort: "medium",
   targetEnv: "test", // "test" | "prod"
   testChatUrl: "https://www.messenger.com/t/954763997032636",
   prodChatUrl: "https://www.messenger.com/t/2245150785540070",

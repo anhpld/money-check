@@ -14,6 +14,7 @@ type Props = {
   apiUrl: string;
   hasApiKey: boolean;
   model: string;
+  reasoningEffort?: string;
   systemPrompt: string;
   debtReminderPrompt?: string;
   targetEnv: "test" | "prod";
@@ -27,6 +28,7 @@ export function LlmSettingsForm({
   apiUrl,
   hasApiKey,
   model: initialModel,
+  reasoningEffort: initialReasoningEffort,
   systemPrompt: initialSystemPrompt,
   debtReminderPrompt: initialDebtReminderPrompt,
   targetEnv: initialTargetEnv,
@@ -245,6 +247,25 @@ export function LlmSettingsForm({
             </div>
           )}
         </div>
+
+        {/* Mức độ suy luận (Reasoning Effort) */}
+        <label className="settings-field settings-field-wide">
+          <span>Mức độ suy luận (Reasoning Effort)</span>
+          <select
+            name="reasoningEffort"
+            className="plain-input"
+            defaultValue={initialReasoningEffort || "medium"}
+            disabled={pending}
+          >
+            <option value="none">Tắt (None - Nhanh nhất)</option>
+            <option value="low">Thấp (Low - Phản hồi nhanh)</option>
+            <option value="medium">Trung bình (Medium - Khuyên dùng)</option>
+            <option value="high">Cao (High - Suy nghĩ sâu)</option>
+          </select>
+          <small>
+            Cấu hình độ sâu tư duy ngầm của AI trước khi trả lời. Mức Medium giúp model phân tích và xâu chuỗi sự việc chuẩn xác.
+          </small>
+        </label>
 
         {/* Hidden targetEnv preserving environment */}
         <input type="hidden" name="targetEnv" value={initialTargetEnv} />

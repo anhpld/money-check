@@ -639,6 +639,8 @@ export async function saveLlmSettings(
   const apiUrl = readText(formData, "apiUrl") || DEFAULT_LLM_SETTINGS.apiUrl;
   const apiKey = readText(formData, "apiKey");
   const model = readText(formData, "model") || DEFAULT_LLM_SETTINGS.model;
+  const reasoningEffort =
+    readText(formData, "reasoningEffort") || DEFAULT_LLM_SETTINGS.reasoningEffort;
   const systemPrompt = readText(formData, "systemPrompt") || DEFAULT_LLM_SETTINGS.systemPrompt;
   const debtReminderPrompt =
     readText(formData, "debtReminderPrompt") || DEFAULT_LLM_SETTINGS.debtReminderPrompt;
@@ -670,6 +672,7 @@ export async function saveLlmSettings(
       { key: LLM_SETTING_KEYS.apiUrl, value: apiUrl },
       { key: LLM_SETTING_KEYS.apiKey, value: savedApiKey },
       { key: LLM_SETTING_KEYS.model, value: model },
+      { key: LLM_SETTING_KEYS.reasoningEffort, value: reasoningEffort },
       { key: LLM_SETTING_KEYS.systemPrompt, value: systemPrompt },
       { key: LLM_SETTING_KEYS.debtReminderPrompt, value: debtReminderPrompt },
       { key: LLM_SETTING_KEYS.targetEnv, value: targetEnv },

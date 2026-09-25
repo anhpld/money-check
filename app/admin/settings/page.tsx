@@ -69,6 +69,9 @@ export default async function SettingsPage() {
   const llmApiKey = llmSettingsByKey.get(LLM_SETTING_KEYS.apiKey)?.value ?? "";
   const llmModel =
     llmSettingsByKey.get(LLM_SETTING_KEYS.model)?.value ?? DEFAULT_LLM_SETTINGS.model;
+  const llmReasoningEffort =
+    llmSettingsByKey.get(LLM_SETTING_KEYS.reasoningEffort)?.value ??
+    DEFAULT_LLM_SETTINGS.reasoningEffort;
   const llmSystemPrompt =
     llmSettingsByKey.get(LLM_SETTING_KEYS.systemPrompt)?.value ?? DEFAULT_LLM_SETTINGS.systemPrompt;
   const llmDebtReminderPrompt =
@@ -115,6 +118,7 @@ export default async function SettingsPage() {
             apiUrl={llmApiUrl}
             hasApiKey={Boolean(llmApiKey)}
             model={llmModel}
+            reasoningEffort={llmReasoningEffort}
             systemPrompt={llmSystemPrompt}
             debtReminderPrompt={llmDebtReminderPrompt}
             targetEnv={targetEnv}
