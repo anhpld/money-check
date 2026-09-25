@@ -106,15 +106,13 @@ export async function sendDebtReminderMessage(): Promise<DebtReminderDeliveryRes
           .map((d) => `- @[${d.name}]: nợ ${debtDescription(d.matchCount, d.generalCount)}`)
           .join("\n");
 
-        const prompt = `Bạn là thủ quỹ vui tính và tâm huyết của đội bóng FC Đông Đô.
-Dưới đây là danh sách anh em còn nợ tiền quỹ:
-${debtorsListStr}
+        const rawPrompt =
+          llmMap.get(LLM_SETTING_KEYS.debtReminderPrompt)?.value ||
+          DEFAULT_LLM_SETTINGS.debtReminderPrompt;
 
-Yêu cầu:
-- Soạn một thông báo nhắc nợ ngắn gọn (2-4 câu), hài hước, thân mật, mang phong cách bóng đá sân cỏ phủi.
-- BẮT BUỘC giữ nguyên chính xác cú pháp tag tên @[Họ và tên] (ví dụ: @[Nguyễn Tuấn Dương], @[Tùng Phạm]) của tất cả những người trong danh sách để hệ thống tag được vào Facebook.
-- Khéo léo nhắc anh em sớm chuyển khoản cho thủ quỹ.
-- Chỉ trả về duy nhất nội dung tin nhắn, không thêm tiêu đề hay lời giải thích.`;
+        const prompt = rawPrompt.includes("{debtors_list}")
+          ? rawPrompt.replace("{debtors_list}", debtorsListStr)
+          : `${rawPrompt}\n\nDanh sách anh em còn nợ:\n${debtorsListStr}\n\nBắt buộc giữ nguyên cú pháp @[Tên] để tag thành viên.`;
 
         const res = await fetch(`${apiUrl}/chat/completions`, {
           method: "POST",

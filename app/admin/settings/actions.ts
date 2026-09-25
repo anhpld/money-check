@@ -640,6 +640,8 @@ export async function saveLlmSettings(
   const apiKey = readText(formData, "apiKey");
   const model = readText(formData, "model") || DEFAULT_LLM_SETTINGS.model;
   const systemPrompt = readText(formData, "systemPrompt") || DEFAULT_LLM_SETTINGS.systemPrompt;
+  const debtReminderPrompt =
+    readText(formData, "debtReminderPrompt") || DEFAULT_LLM_SETTINGS.debtReminderPrompt;
   const targetEnv = (readText(formData, "targetEnv") === "prod" ? "prod" : "test") as "test" | "prod";
   const aiDebtReminderEnabled = formData.get("aiDebtReminderEnabled") === "on";
 
@@ -669,6 +671,7 @@ export async function saveLlmSettings(
       { key: LLM_SETTING_KEYS.apiKey, value: savedApiKey },
       { key: LLM_SETTING_KEYS.model, value: model },
       { key: LLM_SETTING_KEYS.systemPrompt, value: systemPrompt },
+      { key: LLM_SETTING_KEYS.debtReminderPrompt, value: debtReminderPrompt },
       { key: LLM_SETTING_KEYS.targetEnv, value: targetEnv },
       { key: LLM_SETTING_KEYS.aiDebtReminderEnabled, value: String(aiDebtReminderEnabled) },
     ];

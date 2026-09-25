@@ -15,6 +15,7 @@ type Props = {
   hasApiKey: boolean;
   model: string;
   systemPrompt: string;
+  debtReminderPrompt?: string;
   targetEnv: "test" | "prod";
   aiDebtReminderEnabled: boolean;
 };
@@ -27,6 +28,7 @@ export function LlmSettingsForm({
   hasApiKey,
   model: initialModel,
   systemPrompt: initialSystemPrompt,
+  debtReminderPrompt: initialDebtReminderPrompt,
   targetEnv: initialTargetEnv,
   aiDebtReminderEnabled: initialAiDebtReminderEnabled,
 }: Props) {
@@ -37,6 +39,9 @@ export function LlmSettingsForm({
   const [currentModel, setCurrentModel] = useState(initialModel || DEFAULT_LLM_SETTINGS.model);
   const [currentPrompt, setCurrentPrompt] = useState(
     initialSystemPrompt || DEFAULT_LLM_SETTINGS.systemPrompt,
+  );
+  const [currentDebtReminderPrompt, setCurrentDebtReminderPrompt] = useState(
+    initialDebtReminderPrompt || DEFAULT_LLM_SETTINGS.debtReminderPrompt,
   );
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -107,6 +112,10 @@ export function LlmSettingsForm({
 
   function resetDefaultPrompt() {
     setCurrentPrompt(DEFAULT_LLM_SETTINGS.systemPrompt);
+  }
+
+  function resetDefaultDebtReminderPrompt() {
+    setCurrentDebtReminderPrompt(DEFAULT_LLM_SETTINGS.debtReminderPrompt);
   }
 
   return (
@@ -265,7 +274,7 @@ export function LlmSettingsForm({
         {/* System Prompt */}
         <label className="settings-field settings-field-wide">
           <div className="prompt-label-row">
-            <span>System Prompt (Tính cách & Quy tắc của Vũ Quang Bình)</span>
+            <span>System Prompt (Tính cách & Quy tắc của Vũ Quang Bình khi chat)</span>
             <button
               type="button"
               className="prompt-reset-link"
@@ -278,11 +287,37 @@ export function LlmSettingsForm({
           <textarea
             name="systemPrompt"
             className="plain-input prompt-textarea"
-            rows={6}
+            rows={5}
             value={currentPrompt}
             onChange={(e) => setCurrentPrompt(e.target.value)}
             disabled={pending}
           />
+        </label>
+
+        {/* Debt Reminder Prompt */}
+        <label className="settings-field settings-field-wide">
+          <div className="prompt-label-row">
+            <span>Prompt Nhắc nợ thông minh (AI Debt Reminder)</span>
+            <button
+              type="button"
+              className="prompt-reset-link"
+              onClick={resetDefaultDebtReminderPrompt}
+              disabled={pending}
+            >
+              Khôi phục mẫu chuẩn
+            </button>
+          </div>
+          <textarea
+            name="debtReminderPrompt"
+            className="plain-input prompt-textarea"
+            rows={6}
+            value={currentDebtReminderPrompt}
+            onChange={(e) => setCurrentDebtReminderPrompt(e.target.value)}
+            disabled={pending}
+          />
+          <small>
+            Sử dụng <code>{'{debtors_list}'}</code> để chỉ định vị trí danh sách con nợ. Bắt buộc giữ định dạng <code>@[Họ và tên]</code> để Facebook nhận diện tag tên.
+          </small>
         </label>
       </div>
 
