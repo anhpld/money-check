@@ -10,36 +10,22 @@ import {
 const initialState: SendDebtReminderResult = { status: "idle", message: "" };
 const DEFAULT_TEST_CHAT_URL = "https://www.messenger.com/t/954763997032636";
 
-export function MessengerActions({ configured }: { configured: boolean }) {
+type Props = {
+  configured: boolean;
+  targetEnv?: "test" | "prod";
+  activeChatUrl?: string;
+  aiDebtReminderEnabled?: boolean;
+};
+
+export function MessengerActions({
+  configured,
+  targetEnv = "test",
+  activeChatUrl = "https://www.messenger.com/t/954763997032636",
+  aiDebtReminderEnabled = false,
+}: Props) {
   const [testState, testAction, testPending] = useActionState(sendTestMessengerMessage, initialState);
   const [reminderState, reminderAction, reminderPending] = useActionState(sendDebtReminder, initialState);
   const busy = testPending || reminderPending;
-
-  const [testChatUrl, setTestChatUrl] = useState(DEFAULT_TEST_CHAT_URL);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("money_check_test_chat_url");
-      if (saved && saved.startsWith("https://www.messenger.com/t/")) {
-        setTestChatUrl(saved);
-      } else {
-        setTestChatUrl(DEFAULT_TEST_CHAT_URL);
-        localStorage.setItem("money_check_test_chat_url", DEFAULT_TEST_CHAT_URL);
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
-
-  const handleChatUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setTestChatUrl(val);
-    try {
-      localStorage.setItem("money_check_test_chat_url", val);
-    } catch {
-      // Ignore
-    }
-  };
 
   return (
     <div className="settings-messenger-tools">
@@ -47,30 +33,27 @@ export function MessengerActions({ configured }: { configured: boolean }) {
       <div className="settings-tool-card settings-test-card">
         <div className="settings-tool-header">
           <div>
-            <span className="settings-section-label">Test Sandbox</span>
-            <h3>Thử nghiệm gửi tin & Tag tên</h3>
+            <span className="settings-section-label">Thử nghiệm gửi tin</span>
+            <h3>Gửi tin nhắn test</h3>
             <p>
-              Gửi tin nhắn thử nghiệm tới link chat test để kiểm tra bot và tính năng tag <code>@[Tên]</code>.{" "}
-              <strong>Không gửi vào group chính.</strong>
+              Kiểm tra tính năng gửi tin nhắn và gắn thẻ tag <code>@[Tên]</code>. Tin nhắn sẽ tự động gửi vào nhóm theo môi trường đang chọn.
             </p>
           </div>
         </div>
 
         <form action={testAction} className="settings-test-form">
+          <input type="hidden" name="chatUrl" value={activeChatUrl} />
+
           <div className="settings-test-fields">
-            <label className="settings-field">
-              <span>URL đoạn chat test <strong className="settings-required">*</strong></span>
-              <input
-                name="chatUrl"
-                type="url"
-                value={testChatUrl}
-                onChange={handleChatUrlChange}
-                placeholder="https://www.messenger.com/t/..."
-                required
-                disabled={busy || !configured}
-              />
-              <small>Nhập link cá nhân hoặc nhóm test (tự động lưu trên trình duyệt).</small>
-            </label>
+            <div className="settings-field">
+              <span>Đích đến hiện tại:</span>
+              <div className="settings-active-env-box">
+                <span className={`env-pill ${targetEnv}`}>
+                  {targetEnv === "prod" ? "🚀 Chính thức (Prod)" : "🧪 Thử nghiệm (Test)"}
+                </span>
+                <code className="active-url-code">{activeChatUrl}</code>
+              </div>
+            </div>
 
             <label className="settings-field">
               <span>Nội dung tin nhắn test</span>
@@ -112,12 +95,27 @@ export function MessengerActions({ configured }: { configured: boolean }) {
         <div className="settings-tool-header">
           <div>
             <span className="settings-section-label">Thao tác thủ công</span>
-            <h3>Gửi nhắc nợ vào Group chính</h3>
-            <p>Tổng hợp ngay toàn bộ các khoản nợ của thành viên và gửi thông báo trực tiếp vào URL group chính đã cấu hình ở trên.</p>
+            <h3>Gửi nhắc nợ ngay</h3>
+            <p>
+              Tổng hợp toàn bộ nợ của các thành viên và gửi vào nhóm{" "}
+              <strong>{targetEnv === "prod" ? "Chính thức" : "Thử nghiệm"}</strong>.
+            </p>
           </div>
         </div>
 
         <form action={reminderAction} className="settings-manual-reminder-form">
+          <div className="settings-test-fields">
+            <div className="settings-field">
+              <span>Phương thức & Đích gửi:</span>
+              <div className="settings-active-env-box">
+                <span className={`mode-pill ${aiDebtReminderEnabled ? "ai" : "standard"}`}>
+                  {aiDebtReminderEnabled ? "⚡ Socket + LLM Luna 5.6" : "📋 Mẫu chuẩn (Playwright)"}
+                </span>
+                <code className="active-url-code">{activeChatUrl}</code>
+              </div>
+            </div>
+          </div>
+
           <div className="settings-tool-footer">
             <button
               className="primary-button settings-action-btn"

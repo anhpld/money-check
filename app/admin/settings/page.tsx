@@ -47,11 +47,23 @@ export default async function SettingsPage() {
   const settingsByKey = new Map(settings.map((setting) => [setting.key, setting]));
   const apiUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiUrl)?.value ?? "";
   const apiKey = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.apiKey)?.value ?? "";
-  const chatUrl = settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.chatUrl)?.value ?? "";
-  const enabled = settings.length > 0 && settings.every((setting) => setting.enabled);
-  const messengerConfigured = enabled && Boolean(apiUrl && apiKey && chatUrl);
+  const prodChatUrl =
+    settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.prodChatUrl)?.value ??
+    settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.chatUrl)?.value ??
+    "https://www.messenger.com/t/2245150785540070";
+  const testChatUrl =
+    settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.testChatUrl)?.value ??
+    "https://www.messenger.com/t/954763997032636";
 
   const llmSettingsByKey = new Map(llmSettings.map((s) => [s.key, s]));
+  const targetEnv = (settingsByKey.get(SEND_MESSAGE_SETTING_KEYS.targetEnv)?.value === "prod"
+    ? "prod"
+    : (llmSettingsByKey.get(LLM_SETTING_KEYS.targetEnv)?.value === "prod" ? "prod" : "test")) as "test" | "prod";
+  const activeChatUrl = targetEnv === "prod" ? prodChatUrl : testChatUrl;
+
+  const enabled = settings.length > 0 && settings.every((setting) => setting.enabled);
+  const messengerConfigured = enabled && Boolean(apiUrl && apiKey && (prodChatUrl || testChatUrl));
+
   const llmApiUrl =
     llmSettingsByKey.get(LLM_SETTING_KEYS.apiUrl)?.value ?? DEFAULT_LLM_SETTINGS.apiUrl;
   const llmApiKey = llmSettingsByKey.get(LLM_SETTING_KEYS.apiKey)?.value ?? "";
@@ -59,9 +71,6 @@ export default async function SettingsPage() {
     llmSettingsByKey.get(LLM_SETTING_KEYS.model)?.value ?? DEFAULT_LLM_SETTINGS.model;
   const llmSystemPrompt =
     llmSettingsByKey.get(LLM_SETTING_KEYS.systemPrompt)?.value ?? DEFAULT_LLM_SETTINGS.systemPrompt;
-  const llmTargetEnv = (llmSettingsByKey.get(LLM_SETTING_KEYS.targetEnv)?.value === "prod"
-    ? "prod"
-    : "test") as "test" | "prod";
   const llmAiDebtReminderEnabled =
     llmSettingsByKey.get(LLM_SETTING_KEYS.aiDebtReminderEnabled)?.value === "true";
   const llmEnabled = llmSettings.length > 0 && llmSettings.every((s) => s.enabled);
@@ -87,7 +96,14 @@ export default async function SettingsPage() {
         </div>
 
         <section className="panel settings-integration-panel">
-          <SendMessageSettingsForm enabled={enabled} apiUrl={apiUrl} chatUrl={chatUrl} hasApiKey={Boolean(apiKey)} />
+          <SendMessageSettingsForm
+            enabled={enabled}
+            apiUrl={apiUrl}
+            prodChatUrl={prodChatUrl}
+            testChatUrl={testChatUrl}
+            targetEnv={targetEnv}
+            hasApiKey={Boolean(apiKey)}
+          />
         </section>
 
         <section className="panel settings-integration-panel">
@@ -97,13 +113,18 @@ export default async function SettingsPage() {
             hasApiKey={Boolean(llmApiKey)}
             model={llmModel}
             systemPrompt={llmSystemPrompt}
-            targetEnv={llmTargetEnv}
+            targetEnv={targetEnv}
             aiDebtReminderEnabled={llmAiDebtReminderEnabled}
           />
         </section>
 
         <section className="panel settings-messenger-actions-panel">
-          <MessengerActions configured={messengerConfigured} />
+          <MessengerActions
+            configured={messengerConfigured}
+            targetEnv={targetEnv}
+            activeChatUrl={activeChatUrl}
+            aiDebtReminderEnabled={llmAiDebtReminderEnabled}
+          />
         </section>
 
         <DebtReminderScheduleForm

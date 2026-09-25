@@ -4,7 +4,17 @@ export const SEND_MESSAGE_SETTING_KEYS = {
   apiUrl: "api-url",
   apiKey: "api-key",
   chatUrl: "chat-url",
+  prodChatUrl: "prod-chat-url",
+  testChatUrl: "test-chat-url",
+  targetEnv: "target-env",
 } as const;
+
+export const DEFAULT_SEND_MESSAGE_SETTINGS = {
+  apiUrl: "http://34.21.166.188:3001/api/messages",
+  prodChatUrl: "https://www.messenger.com/t/2245150785540070",
+  testChatUrl: "https://www.messenger.com/t/954763997032636",
+  targetEnv: "test" as "test" | "prod",
+};
 
 export const LLM_SETTING_TYPE = "llm-assistant";
 

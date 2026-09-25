@@ -237,39 +237,8 @@ export function LlmSettingsForm({
           )}
         </div>
 
-        {/* Target Environment Switch */}
-        <div className="settings-field settings-field-wide">
-          <span>Môi trường hoạt động của Bot (MQTT)</span>
-          <div className="llm-env-selector">
-            <label className="env-radio-card">
-              <input
-                type="radio"
-                name="targetEnv"
-                value="test"
-                defaultChecked={initialTargetEnv !== "prod"}
-                disabled={pending}
-              />
-              <div className="env-radio-content">
-                <strong>Thử nghiệm (Test)</strong>
-                <p>Chỉ trả lời trong nhóm Test (ID: 954763997032636)</p>
-              </div>
-            </label>
-
-            <label className="env-radio-card">
-              <input
-                type="radio"
-                name="targetEnv"
-                value="prod"
-                defaultChecked={initialTargetEnv === "prod"}
-                disabled={pending}
-              />
-              <div className="env-radio-content">
-                <strong>Chính thức (Prod)</strong>
-                <p>Hoạt động ở nhóm chính (20h45 sân ĐÔNG ĐÔ - ID: 2245150785540070)</p>
-              </div>
-            </label>
-          </div>
-        </div>
+        {/* Hidden targetEnv preserving environment */}
+        <input type="hidden" name="targetEnv" value={initialTargetEnv} />
 
         {/* AI Debt Reminder Checkbox */}
         <div className="settings-field settings-field-wide">
@@ -284,10 +253,10 @@ export function LlmSettingsForm({
               <i aria-hidden="true" />
             </span>
             <div className="checkbox-card-info">
-              <strong>Nhắc nợ thông minh qua AI</strong>
+              <strong>Nhắc nợ thông minh qua AI (Socket + LLM)</strong>
               <p>
-                Tự động dùng LLM để viết lại thông báo nhắc nợ dí dỏm, giữ nguyên cú pháp tag tên @[Tên]. Nếu AI gặp
-                sự cố sẽ tự động fallback về mẫu nhắc nợ cũ.
+                Khi bật, Luna 5.6 sẽ viết lại tin nhắn nhắc nợ dí dỏm kèm tag tên và gửi siêu tốc qua Socket. Khi tắt,
+                hệ thống gửi mẫu chuẩn qua API thông thường như hiện tại.
               </p>
             </div>
           </label>

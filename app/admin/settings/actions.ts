@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "@/lib/admin-session";
 import {
   DEFAULT_LLM_SETTINGS,
+  DEFAULT_SEND_MESSAGE_SETTINGS,
   LLM_SETTING_KEYS,
   LLM_SETTING_TYPE,
   SEND_MESSAGE_SETTING_KEYS,
@@ -305,9 +306,23 @@ export async function sendTestMessengerMessage(
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
 
   const rawChatUrl = formData?.get("chatUrl");
-  const testChatUrl = typeof rawChatUrl === "string" ? rawChatUrl.trim() : "";
+  let testChatUrl = typeof rawChatUrl === "string" ? rawChatUrl.trim() : "";
+
   if (!testChatUrl) {
-    return { status: "error", message: "Vui lòng nhập URL Messenger để gửi test." };
+    const prisma = getPrisma();
+    const settings = await prisma.setting.findMany({
+      where: { type: SEND_MESSAGE_SETTING_TYPE },
+      select: { key: true, value: true },
+    });
+    const sMap = new Map(settings.map((s) => [s.key, s.value]));
+    const targetEnv = sMap.get(SEND_MESSAGE_SETTING_KEYS.targetEnv) || "test";
+    testChatUrl = targetEnv === "prod"
+      ? (sMap.get(SEND_MESSAGE_SETTING_KEYS.prodChatUrl) || sMap.get(SEND_MESSAGE_SETTING_KEYS.chatUrl) || "")
+      : (sMap.get(SEND_MESSAGE_SETTING_KEYS.testChatUrl) || "https://www.messenger.com/t/954763997032636");
+  }
+
+  if (!testChatUrl) {
+    return { status: "error", message: "Chưa cấu hình URL nhóm Messenger." };
   }
 
   const rawMessage = formData?.get("message");
@@ -421,16 +436,21 @@ export async function saveSendMessageSettings(
   const enabled = formData.get("enabled") === "on";
   const apiUrl = readText(formData, "apiUrl");
   const apiKey = readText(formData, "apiKey");
-  const chatUrl = readText(formData, "chatUrl");
+  const prodChatUrl = readText(formData, "prodChatUrl") || readText(formData, "chatUrl");
+  const testChatUrl = readText(formData, "testChatUrl") || DEFAULT_SEND_MESSAGE_SETTINGS.testChatUrl;
+  const targetEnv = (formData.get("targetEnv") === "prod" ? "prod" : "test") as "test" | "prod";
 
-  if (apiUrl.length > 2_000 || chatUrl.length > 2_000 || apiKey.length > 1_000) {
+  if (apiUrl.length > 2_000 || prodChatUrl.length > 2_000 || testChatUrl.length > 2_000 || apiKey.length > 1_000) {
     return { status: "error", message: "Thông tin cấu hình vượt quá độ dài cho phép." };
   }
   if (apiUrl && !validHttpUrl(apiUrl)) {
     return { status: "error", message: "API URL phải là địa chỉ HTTP hoặc HTTPS hợp lệ." };
   }
-  if (chatUrl && !validMessengerChatUrl(chatUrl)) {
-    return { status: "error", message: "URL group phải là link chat Messenger hoặc Facebook hợp lệ." };
+  if (prodChatUrl && !validMessengerChatUrl(prodChatUrl)) {
+    return { status: "error", message: "URL nhóm chính thức phải là link chat Messenger hoặc Facebook hợp lệ." };
+  }
+  if (testChatUrl && !validMessengerChatUrl(testChatUrl)) {
+    return { status: "error", message: "URL nhóm thử nghiệm phải là link chat Messenger hoặc Facebook hợp lệ." };
   }
 
   try {
@@ -446,21 +466,32 @@ export async function saveSendMessageSettings(
     });
     const savedApiKey = apiKey || existingApiKey?.value || "";
 
-    if (enabled && (!apiUrl || !chatUrl || !savedApiKey)) {
-      return { status: "error", message: "Cần nhập đủ API URL, API key và URL group trước khi bật gửi thông báo." };
+    if (enabled && (!apiUrl || !prodChatUrl || !savedApiKey)) {
+      return { status: "error", message: "Cần nhập đủ API URL, API key và URL nhóm trước khi bật gửi thông báo." };
     }
 
     const entries = [
       { key: SEND_MESSAGE_SETTING_KEYS.apiUrl, value: apiUrl },
       { key: SEND_MESSAGE_SETTING_KEYS.apiKey, value: savedApiKey },
-      { key: SEND_MESSAGE_SETTING_KEYS.chatUrl, value: chatUrl },
+      { key: SEND_MESSAGE_SETTING_KEYS.chatUrl, value: prodChatUrl },
+      { key: SEND_MESSAGE_SETTING_KEYS.prodChatUrl, value: prodChatUrl },
+      { key: SEND_MESSAGE_SETTING_KEYS.testChatUrl, value: testChatUrl },
+      { key: SEND_MESSAGE_SETTING_KEYS.targetEnv, value: targetEnv },
     ];
 
-    await prisma.$transaction(entries.map((entry) => prisma.setting.upsert({
-      where: { type_key: { type: SEND_MESSAGE_SETTING_TYPE, key: entry.key } },
-      create: { type: SEND_MESSAGE_SETTING_TYPE, key: entry.key, value: entry.value, enabled },
-      update: { value: entry.value, enabled },
-    })));
+    await prisma.$transaction([
+      ...entries.map((entry) => prisma.setting.upsert({
+        where: { type_key: { type: SEND_MESSAGE_SETTING_TYPE, key: entry.key } },
+        create: { type: SEND_MESSAGE_SETTING_TYPE, key: entry.key, value: entry.value, enabled },
+        update: { value: entry.value, enabled },
+      })),
+      prisma.setting.upsert({
+        where: { type_key: { type: LLM_SETTING_TYPE, key: "target-env" } },
+        create: { type: LLM_SETTING_TYPE, key: "target-env", value: targetEnv, enabled: true },
+        update: { value: targetEnv, enabled: true },
+      }),
+    ]);
+
     if (!enabled) {
       await prisma.debtReminderSchedule.updateMany({
         where: { enabled: true },

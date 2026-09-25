@@ -69,7 +69,21 @@ export async function sendDebtReminderMessage(): Promise<DebtReminderDeliveryRes
       .map((group) => `${group.names.sort((left, right) => left.localeCompare(right, "vi")).map((name) => `@[${name}]`).join(", ")} còn nợ ${debtDescription(group.matchCount, group.generalCount)}.`)
       .join("\n");
 
+    // Lấy thông tin URL nhóm và môi trường hoạt động từ Setting
+    const sendSettings = await getPrisma().setting.findMany({
+      where: { type: "send-message" },
+      select: { key: true, value: true, enabled: true },
+    });
+    const sendMap = new Map(sendSettings.map((s) => [s.key, s]));
+    const targetEnv = sendMap.get("target-env")?.value || "test";
+    const prodChatUrl = sendMap.get("prod-chat-url")?.value || sendMap.get("chat-url")?.value || "https://www.messenger.com/t/2245150785540070";
+    const testChatUrl = sendMap.get("test-chat-url")?.value || "https://www.messenger.com/t/954763997032636";
+    const activeChatUrl = targetEnv === "prod" ? prodChatUrl : testChatUrl;
+    const threadIdMatch = activeChatUrl.match(/\/t\/(\d+)/);
+    const activeThreadId = threadIdMatch ? threadIdMatch[1] : null;
+
     let messageToSend = deterministicMessage;
+    let usedSocket = false;
 
     // Kiểm tra cấu hình AI Debt Reminder
     try {
@@ -130,13 +144,40 @@ Yêu cầu:
         } else {
           console.warn(`LLM reminder returned HTTP ${res.status}, fallback to deterministic message.`);
         }
+
+        // Bật nhắc nợ thông minh: Gửi siêu tốc qua Socket (messenger-listener)
+        if (activeThreadId) {
+          try {
+            const socketHost = process.env.SOCKET_API_URL || "http://172.17.0.1:3003/api/send-message";
+            const sockRes = await fetch(socketHost, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId: activeThreadId, message: messageToSend }),
+              signal: AbortSignal.timeout(10_000),
+            });
+            if (sockRes.ok) {
+              const sockData = await sockRes.json();
+              if (sockData.success) {
+                usedSocket = true;
+                return { status: "sent", debtorCount: debtByUser.size, message: messageToSend };
+              }
+            }
+          } catch (sockErr) {
+            console.warn("Gửi nhắc nợ qua Socket không thành công, tự động fallback về API thông thường:", sockErr);
+          }
+        }
       }
     } catch (llmErr) {
       console.warn("LLM debt reminder failed, falling back to deterministic template:", llmErr);
       // Fallback to deterministicMessage
     }
 
-    const result = await sendConfiguredMessengerMessage(messageToSend);
+    if (usedSocket) {
+      return { status: "sent", debtorCount: debtByUser.size, message: messageToSend };
+    }
+
+    // Nếu không bật AI hoặc Socket không gửi được: Gửi qua API Playwright thông thường
+    const result = await sendConfiguredMessengerMessage(messageToSend, activeChatUrl);
     if (result.status === "sent") return { status: "sent", debtorCount: debtByUser.size, message: messageToSend };
     const error = result.status === "failed"
       ? result.error
