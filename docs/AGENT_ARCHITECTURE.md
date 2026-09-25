@@ -79,7 +79,7 @@ Hệ thống ký ức được phân cấp rõ ràng theo mức độ tin cậy 
 | Tầng Ký Ức | Tên Gọi | Vòng Đời | Lưu Trữ | Quyền Hạn & Cơ Chế Cập Nhật |
 | :--- | :--- | :--- | :--- | :--- |
 | **Tầng 1** | **👑 Hồ sơ Cá nhân (User Profile)** | Bất biến / Chính thức | `User.profile` (`TEXT`) | **Chỉ DUY NHẤT Đội trưởng Đức Anh** (FB ID: `100002974774231`) tag bot mới được set (qua tool `cap_nhat_ho_so_thanh_vien`). Người khác yêu cầu bot từ chối ngay. |
-| **Tầng 2** | **✨ Tính cách & Phong cách (Soul)** | Lâu dài | `User.personaPrompt` (`TEXT`) | **Tự học ngầm:** Học từ các câu chat tag bot và quét định kỳ mẻ 20 tin. Ghi nhận phong cách ăn nói (cà khịa, bỗ bã, vui vẻ, hòa nhã...). |
+| **Tầng 2** | **✨ Tính cách & Phong cách (Soul)** | Lâu dài | `User.personaPrompt` (`TEXT`) | **Tự học ngầm & Tự cô đọng:** Học từ các câu chat tag bot và quét định kỳ mẻ 20 tin. Khi độ dài vượt quá 100 ký tự, kích hoạt hàm tóm tắt AI cô đọng thành 1 câu đúc kết súc tích dưới 20 từ, chống phình to hay lặp từ rác. |
 | **Tầng 3** | **⏳ Ký ức Sự việc & Lời hứa (Episodes)** | Tạm thời (**Hạn 3 ngày**) | Bảng `UserMemory` | **Tự động hết hạn:** Lưu các việc ngắn hạn (hứa khao, xin nghỉ, đau chân, nộp tiền...). Sau 72h tự động bị lọc bỏ và dọn sạch khỏi database. |
 
 ---
@@ -105,17 +105,12 @@ Mỗi khi có tin nhắn kích hoạt bot trong nhóm, hệ thống lắp ráp m
 1. **[Đồng hồ thời gian thực tế]:** Múi giờ Việt Nam UTC+7 (Thứ, ngày/tháng/năm, giờ:phút:giây) để tính chuẩn lịch hẹn và độ tươi của sự kiện.
 2. **[System Prompt]:** Bản sắc, vai trò, quy tắc bốc số liệu nợ/bàn thắng và nguyên tắc phát ngôn.
 3. **[Hồ sơ người hỏi]:** Profile, Soul, và các sự việc 3 ngày qua của chính người đang nhắn tin.
-4. **[Danh sách thành viên FC Đông Đô & Tên gọi tắt]:**
-   * Tự động ánh xạ 13 thành viên active với biệt danh thường gọi:  
-     *Minh Đức Đào Công ➔ Đức, Minh Đức*  
-     *Đức Thắng Nguyễn ➔ Thắng, Đức Thắng (Tiền đạo cắm)*  
-     *Đức Anh ➔ Đức Anh (Sếp, Đội trưởng FC Đông Đô)*  
-     *Nguyễn Tuấn Dương ➔ Dương, Tuấn Dương*, v.v.
-5. **[Bảng tin Sự việc & Kèo / Lời hứa 3 ngày của cả đội]:**
-   * Bảng tin tổng hợp toàn bộ lời hứa/sự việc nóng của 13 anh em (đã lọc sạch trùng lặp, gắn nhãn *[Hôm nay 25/09]*, *[24/09]*...).
+4. **[Bảng tin Sự việc & Kèo / Lời hứa 3 ngày của cả đội]:**
+   * Bảng tin tổng hợp toàn bộ lời hứa/sự việc nóng của anh em trong đội (đã lọc sạch trùng lặp, gắn nhãn *[Hôm nay 25/09]*, *[24/09]*...).
    * Giúp bot có khả năng **xâu chuỗi đa sự việc** (Cross-referencing) như: Minh Đức hứa 100k + Đức Thắng ghi 3 bàn ➔ nhắc đòi tiền thưởng ngay.
-6. **[15 tin nhắn gần nhất trong nhóm]:** Đảm bảo tính liên tục của luồng hội thoại, hiểu được các câu nói cộc lốc hoặc đính chính.
-7. **[Dữ liệu công nợ tức thời]:** Tra cứu nợ nần trực tiếp từ database.
+   * **Tối ưu gọn gàng:** Không nhồi nhét danh sách 13 thành viên dư thừa vào prompt, vì mỗi dòng sự việc đã mang sẵn tên người liên quan; khi cần danh sách đầy đủ, bot đã có sẵn tool `danh_sach_thanh_vien`.
+5. **[15 tin nhắn gần nhất trong nhóm]:** Đảm bảo tính liên tục của luồng hội thoại, hiểu được các câu nói cộc lốc hoặc đính chính.
+6. **[Dữ liệu công nợ tức thời]:** Tra cứu nợ nần trực tiếp từ database.
 
 ---
 
