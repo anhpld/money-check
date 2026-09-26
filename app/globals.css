@@ -1399,7 +1399,8 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .prompt-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .prompt-reset-link { border: 0; background: transparent; color: var(--brand); font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0; }
 .prompt-reset-link:hover { color: var(--brand-dark); }
-.prompt-textarea { font-family: inherit; font-size: 13px; line-height: 1.5; min-height: 120px; resize: vertical; }
+.prompt-textarea { font-family: inherit; font-size: 13px; line-height: 1.55; min-height: 160px; resize: vertical; padding: 10px 12px; }
+.prompt-textarea-system { font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; line-height: 1.65; min-height: 380px; }
 
 @media (max-width: 600px) {
   .llm-env-selector { grid-template-columns: 1fr; }

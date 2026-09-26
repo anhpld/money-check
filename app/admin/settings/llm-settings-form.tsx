@@ -307,8 +307,8 @@ export function LlmSettingsForm({
           </div>
           <textarea
             name="systemPrompt"
-            className="plain-input prompt-textarea"
-            rows={5}
+            className="plain-input prompt-textarea prompt-textarea-system"
+            rows={16}
             value={currentPrompt}
             onChange={(e) => setCurrentPrompt(e.target.value)}
             disabled={pending}
