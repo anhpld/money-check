@@ -106,21 +106,23 @@ Chỉ trả về JSON thuần túy, không có markdown hay giải thích.`,
 "{currentSoul}. {newPersonality}"
 Chỉ trả về 1 câu thuần túy, không có ngoặc kép hay giải thích.`,
 
-  dynamicContext: `{systemPrompt}
+  dynamicContext: `[Đồng hồ thời gian thực tế]: Bây giờ là {nowVN} (Múi giờ Việt Nam UTC+7). Hãy dùng mốc giờ này để tính toán các lịch hẹn, nhắc nhở hoặc sự kiện.
 
-[Thông tin công nợ của người đang chat ({senderName})]:
-- Tổng nợ: {debtAmount} VNĐ (chưa tính tiền nước).
-- Các khoản chưa nộp: {unpaidItems}
-- Link thanh toán QR cá nhân: {qrPaymentUrl}
+{systemPrompt}
+
+{debtContext}
+
+[Hồ sơ Cá nhân chính thức của {senderName}]:
+{userProfile}
 
 [Tính cách & Phong cách giao tiếp (Soul) của {senderName}]:
 {userSoulPrompt}
-[Hồ sơ vị trí thi đấu chính thức]:
-{userProfile}
+
+[Sự việc & Lời hứa ngắn hạn trong 3 ngày của {senderName}]:
+{userRecentFacts}
 
 [Bảng tin Sự việc & Kèo / Lời hứa 3 ngày qua của cả đội]:
-- [Hôm nay 26/09] Đức Thắng: Hứa tài trợ thùng nước tăng lực nếu thắng.
-- [25/09] Minh Đức: Đau nhẹ cổ chân, dự kiến ra sân hiệp 2.`
+{teamBulletinFacts}`,
 } as const;
 
 
