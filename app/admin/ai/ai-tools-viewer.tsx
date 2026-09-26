@@ -153,14 +153,14 @@ const AI_TOOLS: AiTool[] = [
     name: "cap_nhat_ban_thang_kien_tao",
     category: "finance",
     permission: "duc_anh_only",
-    summary: "Ghi nhận Bàn thắng / Kiến tạo (Chỉ Đức Anh)",
+    summary: "Ghi nhận Bàn thắng / Kiến tạo (Cần Đức Anh duyệt)",
     description:
-      "Cập nhật số bàn thắng (goals) hoặc kiến tạo (assists) của thành viên trong trận đấu gần nhất. Chỉ Đức Anh có quyền thực thi.",
+      "Cập nhật số bàn thắng (goals) hoặc kiến tạo (assists) của thành viên vào Database. Khi thành viên tự báo, bot sẽ cà khịa và tag hỏi @[Đức Anh] xác nhận trước khi lưu.",
     parameters: [
-      { name: "ten", type: "string", required: true, description: "Tên thành viên ghi bàn / kiến tạo" },
-      { name: "so_ban_thang", type: "number", required: false, description: "Số bàn thắng cộng thêm" },
-      { name: "so_kien_tao", type: "number", required: false, description: "Số kiến tạo cộng thêm" },
-      { name: "ghi_chu", type: "string", required: false, description: "Ghi chú thêm về pha bóng hoặc trận đấu" },
+      { name: "ten_thanh_vien", type: "string", required: true, description: "Tên thành viên ghi bàn / kiến tạo" },
+      { name: "so_ban_thang", type: "number", required: false, description: "Số bàn thắng ghi được" },
+      { name: "so_kien_tao", type: "number", required: false, description: "Số kiến tạo ghi được" },
+      { name: "ten_tran_dau", type: "string", required: false, description: "Tên trận đấu (mặc định lấy trận gần nhất)" },
     ],
   },
   {
