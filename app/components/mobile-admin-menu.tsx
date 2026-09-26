@@ -9,6 +9,7 @@ const navigation = [
   { key: "collections", href: "/admin/collections", label: "Khoản thu" },
   { key: "statistics", href: "/admin/statistics", label: "Thống kê" },
   { key: "transactions", href: "/admin/transactions", label: "Giao dịch" },
+  { key: "ai", href: "/admin/ai", label: "Trợ lý AI" },
   { key: "webhooks", href: "/admin/webhook-logs", label: "Webhook" },
   { key: "settings", href: "/admin/settings", label: "Cài đặt" },
 ] as const;

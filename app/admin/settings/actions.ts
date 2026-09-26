@@ -703,7 +703,8 @@ export async function saveLlmSettings(
     );
 
     revalidatePath("/admin/settings");
-    return { status: "success", message: "Đã lưu cấu hình Trợ lý AI thành công." };
+    revalidatePath("/admin/ai");
+    return { status: "success", message: "Đã lưu cài đặt Trợ lý AI thành công." };
   } catch (error) {
     console.error("Không thể lưu cấu hình LLM:", error);
     return { status: "error", message: "Không thể lưu cấu hình Trợ lý AI. Vui lòng thử lại." };

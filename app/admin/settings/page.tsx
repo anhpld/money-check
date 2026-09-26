@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { ResetDataButton } from "@/app/admin/settings/reset-data-button";
 import { ResetActivityDataButton } from "@/app/admin/settings/reset-activity-data-button";
 import { MessengerActions } from "@/app/admin/settings/messenger-actions";
 import { SendMessageSettingsForm } from "@/app/admin/settings/send-message-settings-form";
-import { LlmSettingsForm } from "@/app/admin/settings/llm-settings-form";
 import { UserSyncForm } from "@/app/admin/settings/user-sync-form";
 import { AndroidStatusCheck } from "@/app/admin/settings/android-status-check";
 import { DebtReminderScheduleForm } from "@/app/admin/settings/debt-reminder-schedule-form";
@@ -112,18 +112,21 @@ export default async function SettingsPage() {
           />
         </section>
 
-        <section className="panel settings-integration-panel">
-          <LlmSettingsForm
-            enabled={llmEnabled}
-            apiUrl={llmApiUrl}
-            hasApiKey={Boolean(llmApiKey)}
-            model={llmModel}
-            reasoningEffort={llmReasoningEffort}
-            systemPrompt={llmSystemPrompt}
-            debtReminderPrompt={llmDebtReminderPrompt}
-            targetEnv={targetEnv}
-            aiDebtReminderEnabled={llmAiDebtReminderEnabled}
-          />
+        <section className="panel settings-ai-link-panel">
+          <div className="settings-ai-link-content">
+            <div className="settings-ai-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3>Cấu hình Trợ lý AI đã được tách thành tab riêng</h3>
+              <p>Mô hình LLM, Reasoning Effort, System Prompt và danh mục Prompt của 15 Kỹ năng AI hiện được tập trung tại tab Trợ lý AI.</p>
+            </div>
+          </div>
+          <Link href="/admin/ai" className="btn btn-primary btn-sm">
+            Mở Cấu hình AI →
+          </Link>
         </section>
 
         <section className="panel settings-messenger-actions-panel">
