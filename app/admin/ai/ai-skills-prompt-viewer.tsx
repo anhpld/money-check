@@ -91,6 +91,30 @@ Chỉ trả về JSON thuần túy, không có markdown hay giải thích.`,
 "{currentSoul}. {newPersonality}"
 Chỉ trả về 1 câu thuần túy, không có ngoặc kép hay giải thích.`,
   },
+  {
+    id: "dynamic_context_pipeline",
+    name: "Cấu trúc Ghép nối Ngữ cảnh Realtime (Dynamic Context Pipeline)",
+    tag: "Realtime Context",
+    description:
+      "Khi bất kỳ thành viên nào nhắn tin, hệ thống tự động tổng hợp 4 tầng thông tin (Danh tính, Công nợ cá nhân, Hồ sơ & Soul người nói, Bảng tin sự việc toàn đội) ghép vào thẻ 'system' trước khi gọi Luna 5.6.",
+    trigger: "Mỗi lượt xử lý tin nhắn của bot Vũ Quang Bình.",
+    outputFormat: `Hợp nhất vào role 'system' gửi đến AI`,
+    prompt: `{systemPrompt}
+
+[Thông tin công nợ của người đang chat ({senderName})]:
+- Tổng nợ: {debtAmount} VNĐ (chưa tính tiền nước).
+- Các khoản chưa nộp: {unpaidItems}
+- Link thanh toán QR cá nhân: {qrPaymentUrl}
+
+[Tính cách & Phong cách giao tiếp (Soul) của {senderName}]:
+{userSoulPrompt}
+[Hồ sơ vị trí thi đấu chính thức]:
+{userProfile}
+
+[Bảng tin Sự việc & Kèo / Lời hứa 3 ngày qua của cả đội]:
+- [Hôm nay 26/09] Đức Thắng: Hứa tài trợ thùng nước tăng lực nếu thắng.
+- [25/09] Minh Đức: Đau nhẹ cổ chân, dự kiến ra sân hiệp 2.`,
+  },
 ];
 
 const AI_TOOLS: AiTool[] = [
@@ -272,7 +296,19 @@ export function AiSkillsPromptViewer() {
 
   const handleCopy = async (id: string, text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (_) {}
