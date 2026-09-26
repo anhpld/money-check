@@ -37,7 +37,6 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
       const res = await updateUpcomingMatchSchedule(formData);
       if (res.success) {
         setIsModalOpen(false);
-        // Cập nhật lại UI tạm thời
         setSchedule({
           hasSchedule: true,
           data: {
@@ -58,7 +57,7 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
   };
 
   const handleCancelMatch = () => {
-    if (!window.confirm("Sếp có chắc chắn muốn hủy lịch thi đấu này không? Bot sẽ không báo lịch này nữa.")) {
+    if (!window.confirm("Xác nhận hủy lịch thi đấu này? Bot sẽ không báo lịch này nữa.")) {
       return;
     }
 
@@ -87,96 +86,75 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
     <>
       <section className="upcoming-match-section" aria-label="Lịch thi đấu tuần này">
         {schedule.hasSchedule && matchData ? (
-          <div className="panel match-banner-active">
-            <div className="match-banner-header">
-              <div className="match-badge-group">
-                <span className="match-tag-icon">⚽</span>
-                <span className="match-tag-title">LỊCH THI ĐẤU CHÍNH THỨC</span>
-                <span className="badge badge-success">Đang hiệu lực</span>
-                <span className="badge badge-info">Bot Vũ Quang Bình quản lý</span>
+          <div className="panel match-clean-card">
+            <div className="match-clean-header">
+              <div className="match-clean-heading">
+                <span className="match-clean-tag">LỊCH THI ĐẤU</span>
+                <span className="status-badge badge-active">Chính thức</span>
+                <span className="match-clean-expiry">
+                  Tự động xóa sau 22:00 thứ 6 ({formatExpiryTime(matchData.expiresAt)})
+                </span>
               </div>
-              <div className="match-banner-actions">
+              <div className="match-clean-actions">
                 <button
                   type="button"
-                  className="btn btn-outline btn-sm"
+                  className="btn btn-secondary btn-sm"
                   onClick={handleOpenModal}
                   disabled={isPending}
                 >
-                  ✏️ Chỉnh sửa
+                  Chỉnh sửa
                 </button>
                 <button
                   type="button"
-                  className="btn btn-ghost-danger btn-sm"
+                  className="btn btn-danger-outline btn-sm"
                   onClick={handleCancelMatch}
                   disabled={isPending}
                 >
-                  ❌ Hủy lịch
+                  Hủy lịch
                 </button>
               </div>
             </div>
 
-            <div className="match-banner-body">
-              <div className="match-key-detail">
-                <div className="match-detail-item">
-                  <span className="match-detail-icon">🕒</span>
-                  <div>
-                    <small>Thời gian</small>
-                    <strong>{matchData.thoi_gian}</strong>
-                  </div>
-                </div>
-
-                <div className="match-detail-item">
-                  <span className="match-detail-icon">📍</span>
-                  <div>
-                    <small>Sân bóng</small>
-                    <strong>{matchData.san_bong}</strong>
-                  </div>
-                </div>
-
-                <div className="match-detail-item">
-                  <span className="match-detail-icon">⚔️</span>
-                  <div>
-                    <small>Đối thủ</small>
-                    <strong>{matchData.doi_thu || "Chưa có"}</strong>
-                  </div>
-                </div>
-
-                <div className="match-detail-item">
-                  <span className="match-detail-icon">👕</span>
-                  <div>
-                    <small>Trang phục</small>
-                    <strong className="text-highlight">{matchData.mau_ao || "Áo cam"}</strong>
-                  </div>
-                </div>
+            <div className="match-clean-grid">
+              <div className="match-clean-col">
+                <span className="match-clean-label">Thời gian</span>
+                <strong className="match-clean-val">{matchData.thoi_gian}</strong>
               </div>
 
-              {matchData.ghi_chu && (
-                <div className="match-note-box">
-                  <span className="match-note-icon">📝</span>
-                  <span>{matchData.ghi_chu}</span>
-                </div>
-              )}
+              <div className="match-clean-col">
+                <span className="match-clean-label">Sân thi đấu</span>
+                <strong className="match-clean-val">{matchData.san_bong}</strong>
+              </div>
+
+              <div className="match-clean-col">
+                <span className="match-clean-label">Đối thủ</span>
+                <strong className="match-clean-val">{matchData.doi_thu || "Chưa có"}</strong>
+              </div>
+
+              <div className="match-clean-col">
+                <span className="match-clean-label">Trang phục</span>
+                <strong className="match-clean-val text-accent">{matchData.mau_ao || "Áo cam"}</strong>
+              </div>
             </div>
 
-            <div className="match-banner-footer">
-              <span className="match-footer-tip">
-                ⏳ Lịch này sẽ tự động xóa sau <strong>22:00 tối Thứ 6 ({formatExpiryTime(matchData.expiresAt)})</strong>.
-              </span>
-              <span className="match-footer-author">
-                Cập nhật bởi: <strong>{matchData.updatedBy || "Đức Anh"}</strong>
-              </span>
+            {matchData.ghi_chu && (
+              <div className="match-clean-note">
+                <span className="match-clean-note-label">Ghi chú:</span>
+                <span>{matchData.ghi_chu}</span>
+              </div>
+            )}
+
+            <div className="match-clean-footer">
+              <span>Cập nhật bởi: {matchData.updatedBy || "Đức Anh"}</span>
             </div>
           </div>
         ) : (
-          <div className="panel match-banner-empty">
-            <div className="match-empty-left">
-              <span className="match-empty-icon">⚽</span>
-              <div>
-                <strong>Lịch thi đấu tuần này: Chưa có lịch mới</strong>
-                <p>
-                  Đội trưởng Đức Anh có thể tag <code>@Vũ Quang Bình</code> trong nhóm Messenger để chốt lịch nhanh, hoặc bấm nút bên cạnh để tạo trực tiếp.
-                </p>
-              </div>
+          <div className="panel match-clean-empty">
+            <div className="match-empty-text">
+              <strong>Lịch thi đấu: Chưa có lịch mới</strong>
+              <p>
+                Tag bot Vũ Quang Bình trong nhóm Messenger để chốt lịch, hoặc bấm nút bên cạnh để tạo trực tiếp.
+              </p>
             </div>
             <button
               type="button"
@@ -184,115 +162,125 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
               onClick={handleOpenModal}
               disabled={isPending}
             >
-              + Chốt lịch thi đấu
+              + Tạo lịch thi đấu
             </button>
           </div>
         )}
       </section>
 
-      {/* Modal Chốt / Sửa lịch thi đấu */}
+      {/* Modal Chốt / Sửa lịch thi đấu - Sử dụng dialog-backdrop chuẩn của hệ thống */}
       {isModalOpen && (
-        <div className="modal-backdrop" onClick={handleCloseModal}>
-          <div
-            className="modal-box match-schedule-modal"
-            onClick={(e) => e.stopPropagation()}
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !isPending) handleCloseModal();
+          }}
+        >
+          <section
+            className="dialog-card match-schedule-dialog"
             role="dialog"
             aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
-              <h3>{schedule.hasSchedule ? "✏️ Chỉnh sửa lịch thi đấu" : "⚽ Chốt lịch thi đấu mới"}</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={handleCloseModal}
-                aria-label="Đóng modal"
-              >
-                ✕
-              </button>
+            <div className="dialog-heading without-icon">
+              <div className="match-dialog-top">
+                <h2>{schedule.hasSchedule ? "Chỉnh sửa lịch thi đấu" : "Tạo lịch thi đấu mới"}</h2>
+                <button
+                  type="button"
+                  className="collection-kind-dialog-close"
+                  onClick={handleCloseModal}
+                  aria-label="Đóng"
+                >
+                  ✕
+                </button>
+              </div>
+              <p>
+                Lịch thi đấu sẽ được hiển thị trên web và bot Vũ Quang Bình sẽ dùng để trả lời anh em khi hỏi.
+              </p>
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="modal-body">
+              <div className="match-dialog-form">
                 {errorMsg && <div className="notice-banner is-error">{errorMsg}</div>}
 
-                <div className="form-group">
+                <div className="field-block">
                   <label htmlFor="thoi_gian">
                     Thời gian thi đấu <span className="text-danger">*</span>
                   </label>
                   <input
-                    type="text"
                     id="thoi_gian"
                     name="thoi_gian"
+                    type="text"
                     required
-                    defaultValue={matchData?.thoi_gian || "Thứ 6 tuần này lúc 20h30"}
+                    defaultValue={matchData?.thoi_gian || ""}
                     placeholder="VD: Thứ 6 ngày 02/10 lúc 20h30"
                     className="input-text"
                   />
-                  <small className="field-hint">Khung giờ đá bóng của đội (ví dụ: Thứ 6 20h30, 20h45...)</small>
                 </div>
 
-                <div className="form-group">
+                <div className="field-block">
                   <label htmlFor="san_bong">
-                    Sân bóng / Địa điểm <span className="text-danger">*</span>
+                    Sân bóng <span className="text-danger">*</span>
                   </label>
                   <input
-                    type="text"
                     id="san_bong"
                     name="san_bong"
+                    type="text"
                     required
-                    defaultValue={matchData?.san_bong || "Sân Đoan Môn"}
-                    placeholder="VD: Sân Đoan Môn, Sân Đầm Hồng..."
+                    defaultValue={matchData?.san_bong || ""}
+                    placeholder="VD: Sân Đoan Môn (Số 1 Phan Đình Phùng)"
                     className="input-text"
                   />
                 </div>
 
-                <div className="form-row-2">
-                  <div className="form-group">
-                    <label htmlFor="doi_thu">Đội đối thủ</label>
+                <div className="field-grid-2">
+                  <div className="field-block">
+                    <label htmlFor="doi_thu">Đối thủ</label>
                     <input
-                      type="text"
                       id="doi_thu"
                       name="doi_thu"
-                      defaultValue={matchData?.doi_thu || "FC Viettel"}
-                      placeholder="VD: FC Viettel, FC Lord..."
+                      type="text"
+                      defaultValue={matchData?.doi_thu || ""}
+                      placeholder="VD: FC Viettel"
                       className="input-text"
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="mau_ao">Màu áo trang phục</label>
+                  <div className="field-block">
+                    <label htmlFor="mau_ao">Màu áo / Trang phục</label>
                     <input
-                      type="text"
                       id="mau_ao"
                       name="mau_ao"
-                      defaultValue={matchData?.mau_ao || "Áo cam truyền thống"}
-                      placeholder="VD: Áo cam, Áo trắng..."
+                      type="text"
+                      defaultValue={matchData?.mau_ao || ""}
+                      placeholder="VD: Áo cam truyền thống"
                       className="input-text"
                     />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="ghi_chu">Ghi chú dặn dò anh em</label>
+                <div className="field-block">
+                  <label htmlFor="ghi_chu">Ghi chú thêm</label>
                   <input
-                    type="text"
                     id="ghi_chu"
                     name="ghi_chu"
-                    defaultValue={matchData?.ghi_chu || "Anh em có mặt trước 15 phút khởi động"}
-                    placeholder="VD: Có mặt trước 15 phút, đá sân 7..."
+                    type="text"
+                    defaultValue={matchData?.ghi_chu || ""}
+                    placeholder="VD: Có mặt trước 15 phút khởi động"
                     className="input-text"
                   />
                 </div>
 
-                <div className="notice-info-box">
-                  💡 <strong>Quy tắc tự động:</strong> Lịch này sẽ được bot Vũ Quang Bình dùng để trả lời khi bất kỳ ai trong đội hỏi và sẽ <strong>tự động xóa sau 22h00 tối Thứ 6</strong>.
+                <div className="match-dialog-notice">
+                  Lịch này sẽ tự động xóa sau 22h00 tối thứ 6 hàng tuần theo quy định của đội.
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="dialog-actions-right">
                 <button
                   type="button"
-                  className="btn btn-outline"
+                  className="btn btn-secondary"
                   onClick={handleCloseModal}
                   disabled={isPending}
                 >
@@ -307,7 +295,7 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
                 </button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
     </>
