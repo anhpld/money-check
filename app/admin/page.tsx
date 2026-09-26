@@ -4,6 +4,8 @@ import { MonthSelector } from "@/app/admin/month-selector";
 import { OverviewCharts } from "@/app/admin/overview-charts";
 import { getDashboardData } from "@/lib/dashboard";
 import { formatVnd } from "@/lib/money";
+import { getUpcomingMatchSchedule } from "./schedule-actions";
+import { UpcomingMatchBanner } from "./upcoming-match-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,10 @@ export default async function AdminOverviewPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const { month } = await searchParams;
-  const data = await getDashboardData(month);
+  const [data, upcomingSchedule] = await Promise.all([
+    getDashboardData(month),
+    getUpcomingMatchSchedule(),
+  ]);
 
   return (
     <AdminShell active="overview">
@@ -30,6 +35,9 @@ export default async function AdminOverviewPage({
             availableMonths={data.availableMonths}
           />
         </header>
+
+        {/* Lịch thi đấu tuần này do Bot Vũ Quang Bình & Đội trưởng quản lý */}
+        <UpcomingMatchBanner initialSchedule={upcomingSchedule} />
 
         {/* 4 Thẻ KPI chính */}
         <section className="dashboard-kpi-grid" aria-label="Chỉ số tổng quan">
