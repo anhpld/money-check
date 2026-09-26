@@ -109,8 +109,16 @@ Mỗi khi có tin nhắn kích hoạt bot trong nhóm, hệ thống lắp ráp m
    * Bảng tin tổng hợp toàn bộ lời hứa/sự việc nóng của anh em trong đội (đã lọc sạch trùng lặp, gắn nhãn *[Hôm nay 25/09]*, *[24/09]*...).
    * Giúp bot có khả năng **xâu chuỗi đa sự việc** (Cross-referencing) như: Minh Đức hứa 100k + Đức Thắng ghi 3 bàn ➔ nhắc đòi tiền thưởng ngay.
    * **Tối ưu gọn gàng:** Không nhồi nhét danh sách 13 thành viên dư thừa vào prompt, vì mỗi dòng sự việc đã mang sẵn tên người liên quan; khi cần danh sách đầy đủ, bot đã có sẵn tool `danh_sach_thanh_vien`.
-5. **[15 tin nhắn gần nhất trong nhóm]:** Đảm bảo tính liên tục của luồng hội thoại, hiểu được các câu nói cộc lốc hoặc đính chính.
-6. **[Dữ liệu công nợ tức thời]:** Tra cứu nợ nần trực tiếp từ database.
+5. **[Hội thoại Đa lượt Thực tế (Native Multi-turn Messages Array)]:**
+   * Không còn nhồi tin nhắn cũ dạng văn bản tĩnh vào `system`.
+   * Chuyển toàn bộ thành mảng `messages` chuẩn:
+     - Lọc các tin nhắn diễn ra trong vòng **1 tiếng (60 phút)** gần nhất.
+     - Lấy tối đa **10 tin nhắn gần nhất** theo đúng thứ tự thời gian.
+     - Phân định rõ ràng 2 Role: Lời của anh em là `role: "user"` kèm mốc giây `[HH:mm:ss] Tên: "Nội dung"`, lời của bot đã đáp trước đó là `role: "assistant"`.
+     - Giúp AI hiểu ngay các tin nhắn ngắt quãng (gõ cộc lốc rồi gửi nhiều tin liền kề) và nhớ chính xác câu bot vừa trả lời.
+6. **[Cơ chế Trích dẫn Tin nhắn (Message Quote / Reply)]:**
+   * Mọi tin nhắn phản hồi của bot đều gắn kèm `replyToMessage: event.messageID` trong payload, đảm bảo luôn hiện thanh trích dẫn (reply bong bóng) vào đúng tin nhắn của người hỏi.
+7. **[Dữ liệu công nợ tức thời]:** Tra cứu nợ nần trực tiếp từ database.
 
 ---
 
