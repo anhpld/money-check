@@ -134,6 +134,10 @@ Bot được trang bị 12 công cụ chuyên biệt để thao tác với dữ 
 ### Nhóm 3: Phân quyền Đội trưởng Đức Anh (Admin-only Tools)
 10. `cap_nhat_ho_so_thanh_vien`: Cập nhật vị trí thi đấu, số áo, vai trò chính thức vào `User.profile`. **Chỉ Đội trưởng Đức Anh mới có quyền.**
 11. `cap_nhat_ban_thang_kien_tao`: Cập nhật số bàn thắng hoặc kiến tạo của thành viên trong trận đấu cụ thể vào `SessionMember`. **Chỉ Đội trưởng Đức Anh mới có quyền.** Nếu người khác yêu cầu, bot từ chối và báo: *"để em báo cáo cho anh Đức Anh"*.
+    - **Quy tắc xác định trận đấu chặt chẽ:**
+      * Nếu không nêu tên trận hoặc không rõ: Bot **hỏi lại** xác nhận xem có phải trận cuối gần nhất không (`latestMatch`).
+      * Nếu nói *"trận hôm nay / tối nay"* nhưng trên web admin chưa tạo: Bot **hỏi lại** theo Phương án A: *"Em chưa thấy trận hôm nay trên web. Ý Sếp có phải là cập nhật cho trận gần nhất [Tên trận] không, hay Sếp lên web tạo trận mới trước ạ?"*.
+      * Nếu nói tên trận có nhiều kết quả trùng nhau (ví dụ: *"trận Đông Đô"*): Tự động lấy trận có ngày đá gần nhất.
 
 ### Nhóm 4: Hẹn giờ & Tự động hóa
 12. `dat_lich_nhac_nho`: Đặt lịch hẹn nhắc nhở công việc, dậy sớm, mang áo đấu... Kết nối trực tiếp Hermes Cron Engine để bắn tin tự động khi đến giờ.
