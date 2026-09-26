@@ -360,9 +360,14 @@ export const AI_TOOLS: AiTool[] = [
           da_luu_db: false,
           huong_dan_cho_bot:
             "Thành viên Tuấn Nam tự báo ghi 5 bàn ở trận Test. CHƯA ĐƯỢC LƯU VÀO DB!\n" +
-            "1. Trả lời cà khịa nhẹ nhàng với Tuấn Nam, sau đó quay sang hỏi anh @[Đức Anh] một cách TỰ NHIÊN, LINH HOẠT (TUYỆT ĐỐI KHÔNG lặp đi lặp lại cụm từ 'xác nhận').\n" +
-            "Gợi ý các kiểu hỏi đời thường: có đúng không anh, check VAR, làm chứng, có uy tín không...\n" +
-            "2. ĐẶC BIỆT (ĐÒI KÈO BẢNG TIN): Hãy đối chiếu ngay với [Bảng tin Sự việc & Kèo / Lời hứa 3 ngày qua của cả đội]. Nếu thành tích này (ví dụ ghi 3 bàn / hat-trick...) khớp với bất kỳ kèo treo thưởng hoặc lời hứa nào của ai đó (ví dụ ai hứa thưởng tiền khi ghi 3 bàn), hãy tiện mồm réo tên người đã hứa vào chuẩn bị ting ting / thực hiện kèo luôn cho xôm tụ!",
+            "Hãy trả lời cà khịa nhẹ nhàng với Tuấn Nam, sau đó quay sang hỏi anh @[Đức Anh] một cách TỰ NHIÊN, LINH HOẠT VÀ ĐA DẠNG CÂU TỪ (TUYỆT ĐỐI KHÔNG lặp đi lặp lại cụm từ 'xác nhận' hay một khuôn mẫu cố định).\n" +
+            "Gợi ý các kiểu hỏi tự nhiên đời thường của anh em phủi:\n" +
+            "- 'Có đúng không anh @[Đức Anh], em chưa tin lắm :D để em lưu bảng vàng'\n" +
+            "- 'Thật không anh @[Đức Anh] ơi, có uy tín không để em bấm lưu?'\n" +
+            "- 'Anh @[Đức Anh] check VAR quả này xem chuẩn không để em ghi vào sổ nào'\n" +
+            "- 'Anh @[Đức Anh] làm chứng phát xem có đúng thế không anh'\n" +
+            "- 'Vụ này chuẩn không anh @[Đức Anh] để em chốt số liệu?'\n" +
+            "Hãy tự do chọn hoặc sáng tạo câu hỏi đời thường, tếu táo và tự nhiên nhất!",
         },
       },
       {
