@@ -54,6 +54,7 @@ export function CollectionEditor({
   const [memberFilter, setMemberFilter] = useState<"all" | "debt" | "paid">("all");
   const [userPickerOpen, setUserPickerOpen] = useState(false);
   const [userPickerSearch, setUserPickerSearch] = useState("");
+  const [userPickerFilter, setUserPickerFilter] = useState<"all" | "selected" | "unselected">("all");
 
   // Expanded member details (goals, assists, fee exemption, notes)
   const [expandedMemberIds, setExpandedMemberIds] = useState<Record<string, boolean>>({});
@@ -1257,7 +1258,7 @@ export function CollectionEditor({
         </div>
       )}
 
-      {/* 5. MODAL: MEMBER PICKER (TINH GỌN, KHÔNG CHIẾM DIỆN TÍCH TRANG CHÍNH) */}
+      {/* 5. MODAL: MEMBER PICKER (TINH GỌN, HIỆN ĐẠI, KHÔNG BỊ CẮT CHỮ) */}
       {userPickerOpen && (
         <div
           className="dialog-backdrop"
@@ -1267,35 +1268,96 @@ export function CollectionEditor({
           }}
         >
           <div className="dialog-card member-picker-modal">
-            <div className="dialog-head">
+            {/* Header */}
+            <div className="dialog-head picker-dialog-head">
               <div>
                 <h2>Chọn người tham gia</h2>
-                <p>Đã chọn {selectedIds.length} / {users.length} thành viên</p>
+                <p>
+                  Đã chọn <strong>{selectedIds.length}</strong> / {users.length} thành viên
+                </p>
               </div>
               <button
                 type="button"
                 className="dialog-close"
+                aria-label="Đóng"
                 onClick={() => setUserPickerOpen(false)}
               >
                 ×
               </button>
             </div>
 
-            <div className="picker-search-bar">
-              <input
-                type="text"
-                placeholder="Tìm thành viên..."
-                value={userPickerSearch}
-                onChange={(e) => setUserPickerSearch(e.target.value)}
-              />
-              <button type="button" className="select-all-btn" onClick={selectAll}>
-                {selectedIds.length === users.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-              </button>
+            {/* Toolbar: Search, Filters & Bulk Action */}
+            <div className="picker-toolbar">
+              <div className="picker-search-row">
+                <div className="picker-search-wrap">
+                  <svg className="picker-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Tìm thành viên..."
+                    value={userPickerSearch}
+                    onChange={(e) => setUserPickerSearch(e.target.value)}
+                    autoFocus
+                  />
+                  {userPickerSearch && (
+                    <button
+                      type="button"
+                      className="picker-search-clear"
+                      onClick={() => setUserPickerSearch("")}
+                      aria-label="Xóa tìm kiếm"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="picker-select-all-btn"
+                  onClick={selectAll}
+                >
+                  {selectedIds.length === users.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                </button>
+              </div>
+
+              <div className="picker-filter-chips">
+                <button
+                  type="button"
+                  className={`picker-filter-chip ${userPickerFilter === "all" ? "active" : ""}`}
+                  onClick={() => setUserPickerFilter("all")}
+                >
+                  Tất cả ({users.length})
+                </button>
+                <button
+                  type="button"
+                  className={`picker-filter-chip ${userPickerFilter === "selected" ? "active" : ""}`}
+                  onClick={() => setUserPickerFilter("selected")}
+                >
+                  Đã chọn ({selectedIds.length})
+                </button>
+                <button
+                  type="button"
+                  className={`picker-filter-chip ${userPickerFilter === "unselected" ? "active" : ""}`}
+                  onClick={() => setUserPickerFilter("unselected")}
+                >
+                  Chưa chọn ({users.length - selectedIds.length})
+                </button>
+              </div>
             </div>
 
+            {/* List Members: 2-column on desktop with 100% full un-truncated name */}
             <div className="picker-user-grid">
               {users
-                .filter((u) => u.name.toLowerCase().includes(userPickerSearch.toLowerCase()))
+                .filter((u) => {
+                  const matchQuery = u.name.toLowerCase().includes(userPickerSearch.toLowerCase());
+                  const isChecked = selectedIds.includes(u.id);
+                  if (!matchQuery) return false;
+                  if (userPickerFilter === "selected") return isChecked;
+                  if (userPickerFilter === "unselected") return !isChecked;
+                  return true;
+                })
                 .map((u, i) => {
                   const isChecked = selectedIds.includes(u.id);
                   return (
@@ -1308,27 +1370,55 @@ export function CollectionEditor({
                         checked={isChecked}
                         onChange={() => toggleUser(u.id)}
                       />
-                      <UserAvatar
-                        name={u.name}
-                        avatarKey={u.avatarKey}
-                        className="user-avatar"
-                        toneIndex={i}
-                      />
-                      <span>{u.name}</span>
-                      <i>{isChecked ? "✓" : ""}</i>
+                      <div className="picker-avatar-wrap">
+                        <UserAvatar
+                          name={u.name}
+                          avatarKey={u.avatarKey}
+                          className="user-avatar"
+                          toneIndex={i}
+                        />
+                      </div>
+                      <div className="picker-user-info">
+                        <span className="picker-user-name">{u.name}</span>
+                        <small className="picker-user-sub">
+                          {isChecked ? "Đang tham gia" : "Chưa chọn"}
+                        </small>
+                      </div>
+                      <div className={`picker-custom-checkbox ${isChecked ? "checked" : ""}`} aria-hidden="true">
+                        {isChecked && (
+                          <svg viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
                     </label>
                   );
                 })}
             </div>
 
-            <div className="dialog-actions">
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => setUserPickerOpen(false)}
-              >
-                Xong ({selectedIds.length} người)
-              </button>
+            {/* Footer */}
+            <div className="dialog-actions picker-dialog-footer">
+              <div className="picker-footer-summary">
+                <span>
+                  Đã chọn <strong>{selectedIds.length}</strong> / {users.length} người
+                </span>
+              </div>
+              <div className="picker-footer-btns">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setUserPickerOpen(false)}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  className="primary-button btn-sm"
+                  onClick={() => setUserPickerOpen(false)}
+                >
+                  Xong ({selectedIds.length} người)
+                </button>
+              </div>
             </div>
           </div>
         </div>
