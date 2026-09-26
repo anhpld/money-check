@@ -33,6 +33,7 @@ export const LLM_SETTING_KEYS = {
   promptBatchMemory: "prompt-batch-memory",
   promptSoulCondensation: "prompt-soul-condensation",
   promptDynamicContext: "prompt-dynamic-context",
+  promptRelevantEvents: "prompt-relevant-events",
 } as const;
 
 export const DEFAULT_LLM_SETTINGS = {
@@ -106,6 +107,21 @@ Chỉ trả về JSON thuần túy, không có markdown hay giải thích.`,
 "{currentSoul}. {newPersonality}"
 Chỉ trả về 1 câu thuần túy, không có ngoặc kép hay giải thích.`,
 
+  relevantEvents: `Dưới đây là các sự việc & kèo cọt 3 ngày qua của đội bóng FC Đông Đô:
+{allFacts}
+
+Thành viên {senderName} vừa nhắn: "{messageText}"
+
+Nhiệm vụ:
+Tìm trong danh sách trên các sự việc, kèo cọt hoặc lời hứa LIÊN QUAN TRỰC TIẾP đến câu nói của {senderName} (kể cả nói lóng, từ đồng nghĩa như hat-trick = 3 bàn, làm 2 nháy = 2 bàn, khát nước = kèo bia/nước...).
+- Chọn tối đa 3 sự việc liên quan nhất.
+- Nếu không có sự việc nào liên quan, trường "events" là mảng rỗng [].
+
+Cấu trúc JSON yêu cầu:
+{
+  "events": ["sự việc liên quan 1", "sự việc liên quan 2"]
+}`,
+
   dynamicContext: `[Đồng hồ thời gian thực tế]: Bây giờ là {nowVN} (Múi giờ Việt Nam UTC+7). Hãy dùng mốc giờ này để tính toán các lịch hẹn, nhắc nhở hoặc sự kiện.
 
 {systemPrompt}
@@ -121,8 +137,8 @@ Chỉ trả về 1 câu thuần túy, không có ngoặc kép hay giải thích.
 [Sự việc & Lời hứa ngắn hạn trong 3 ngày của {senderName}]:
 {userRecentFacts}
 
-[Bảng tin Sự việc & Kèo / Lời hứa 3 ngày qua của cả đội]:
-{teamBulletinFacts}`,
+[Các sự kiện liên quan]:
+{relevantEvents}`,
 } as const;
 
 

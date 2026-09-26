@@ -56,6 +56,8 @@ export default async function AiAdminPage() {
       llmMap.get(LLM_SETTING_KEYS.promptSoulCondensation)?.value || DEFAULT_SUBSYSTEM_PROMPTS.soulCondensation,
     [LLM_SETTING_KEYS.promptDynamicContext]:
       llmMap.get(LLM_SETTING_KEYS.promptDynamicContext)?.value || DEFAULT_SUBSYSTEM_PROMPTS.dynamicContext,
+    [LLM_SETTING_KEYS.promptRelevantEvents]:
+      llmMap.get(LLM_SETTING_KEYS.promptRelevantEvents)?.value || DEFAULT_SUBSYSTEM_PROMPTS.relevantEvents,
   };
 
   const llmConfigNode = (

@@ -50,12 +50,23 @@ const PROMPT_DEFINITIONS: SubsystemPromptDef[] = [
     defaultPrompt: DEFAULT_SUBSYSTEM_PROMPTS.soulCondensation,
   },
   {
+    id: "relevant_events",
+    settingKey: LLM_SETTING_KEYS.promptRelevantEvents,
+    name: "Lọc Sự kiện Liên quan Realtime (Relevant Events Pre-filter)",
+    tag: "Semantic Filter",
+    description:
+      "Tiền xử lý siêu nhanh trước khi gọi Não AI chính. Tự động đối chiếu câu chat với kho sự việc 3 ngày của cả đội bằng JSON Mode (response_format: json_object) để chọn ra tối đa 3 sự việc liên quan nhất.",
+    trigger: "Mỗi khi thành viên nhắn tin và kho sự việc cả đội có từ 1 sự việc trở lên.",
+    outputFormat: `JSON Mode: { "events": string[] } (response_format: json_object)`,
+    defaultPrompt: DEFAULT_SUBSYSTEM_PROMPTS.relevantEvents,
+  },
+  {
     id: "dynamic_context",
     settingKey: LLM_SETTING_KEYS.promptDynamicContext,
     name: "Cấu trúc Ghép nối Ngữ cảnh Realtime (Dynamic Context Pipeline)",
     tag: "Realtime Context",
     description:
-      "Khi bất kỳ thành viên nào nhắn tin, hệ thống tự động tổng hợp 4 tầng thông tin (Danh tính, Công nợ cá nhân, Hồ sơ & Soul người nói, Bảng tin sự việc toàn đội) ghép vào thẻ 'system' trước khi gọi Luna 5.6.",
+      "Khi bất kỳ thành viên nào nhắn tin, hệ thống tự động tổng hợp 4 tầng thông tin (Danh tính, Công nợ cá nhân, Hồ sơ & Soul người nói, Sự kiện liên quan) ghép vào thẻ 'system' trước khi gọi Luna 5.6.",
     trigger: "Mỗi lượt xử lý tin nhắn của bot Vũ Quang Bình.",
     outputFormat: `Hợp nhất vào role 'system' gửi đến AI`,
     defaultPrompt: DEFAULT_SUBSYSTEM_PROMPTS.dynamicContext,
