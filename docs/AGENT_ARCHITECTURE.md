@@ -122,9 +122,9 @@ Mỗi khi có tin nhắn kích hoạt bot trong nhóm, hệ thống lắp ráp m
 
 ---
 
-## 7. Hệ thống 12 Công cụ (Function Calling Tools)
+## 7. Hệ thống 15 Công cụ (Function Calling Tools)
 
-Bot được trang bị 12 công cụ chuyên biệt để thao tác với dữ liệu:
+Bot được trang bị 15 công cụ chuyên biệt để thao tác với dữ liệu:
 
 ### Nhóm 1: Thống kê & Công nợ đội bóng
 1. `tra_cuu_thanh_vien`: Tra cứu toàn diện một thành viên (nợ quỹ, số trận, bàn thắng, kiến tạo, profile, soul, sự việc 3 ngày).
@@ -146,9 +146,14 @@ Bot được trang bị 12 công cụ chuyên biệt để thao tác với dữ 
       * Nếu không nêu tên trận hoặc không rõ: Bot **hỏi lại** xác nhận xem có phải trận cuối gần nhất không (`latestMatch`).
       * Nếu nói *"trận hôm nay / tối nay"* nhưng trên web admin chưa tạo: Bot **hỏi lại** theo Phương án A: *"Em chưa thấy trận hôm nay trên web. Ý Sếp có phải là cập nhật cho trận gần nhất [Tên trận] không, hay Sếp lên web tạo trận mới trước ạ?"*.
       * Nếu nói tên trận có nhiều kết quả trùng nhau (ví dụ: *"trận Đông Đô"*): Tự động lấy trận có ngày đá gần nhất.
+12. `chot_lich_thi_dau`: Chốt hoặc sửa lịch thi đấu chính thức (thời gian, sân, đối thủ, màu áo, ghi chú) lưu vào Database `money_check.Setting`. **Chỉ Đội trưởng Đức Anh mới có quyền.** Lịch tự động hết hạn và xóa sau 22h tối thứ 6.
+13. `huy_lich_thi_dau`: Hủy bỏ hoặc hoãn lịch thi đấu của tuần hiện tại. **Chỉ Đội trưởng Đức Anh mới có quyền.**
 
-### Nhóm 4: Hẹn giờ & Tự động hóa
-12. `dat_lich_nhac_nho`: Đặt lịch hẹn nhắc nhở công việc, dậy sớm, mang áo đấu... Kết nối trực tiếp Hermes Cron Engine để bắn tin tự động khi đến giờ.
+### Nhóm 4: Lịch thi đấu & Tra cứu chung
+14. `xem_lich_thi_dau`: Tra cứu lịch thi đấu tuần này (thời gian, sân bóng, đối thủ, màu áo, ghi chú). Bất kỳ thành viên nào cũng có thể tra cứu qua tool. Tự động báo hết hạn sau 22h tối thứ 6 nếu chưa có lịch mới.
+
+### Nhóm 5: Hẹn giờ & Tự động hóa
+15. `dat_lich_nhac_nho`: Đặt lịch hẹn nhắc nhở công việc, dậy sớm, mang áo đấu... Kết nối trực tiếp Hermes Cron Engine để bắn tin tự động khi đến giờ.
 
 ---
 
