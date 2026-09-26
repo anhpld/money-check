@@ -1,8 +1,9 @@
 import { AdminShell } from "@/app/components/admin-shell";
 import { LlmSettingsForm } from "@/app/admin/settings/llm-settings-form";
-import { AiSkillsPromptViewer } from "@/app/admin/ai/ai-skills-prompt-viewer";
+import { AiTabsContainer } from "@/app/admin/ai/ai-tabs-container";
 import {
   DEFAULT_LLM_SETTINGS,
+  DEFAULT_SUBSYSTEM_PROMPTS,
   LLM_SETTING_KEYS,
   LLM_SETTING_TYPE,
   SEND_MESSAGE_SETTING_KEYS,
@@ -45,6 +46,32 @@ export default async function AiAdminPage() {
     llmMap.get(LLM_SETTING_KEYS.aiDebtReminderEnabled)?.value === "true";
   const llmEnabled = llmSettings.length > 0 && llmSettings.every((s) => s.enabled);
 
+  // Subsystem prompts from DB or fallback
+  const subsystemPrompts: Record<string, string> = {
+    [LLM_SETTING_KEYS.promptDirectMemory]:
+      llmMap.get(LLM_SETTING_KEYS.promptDirectMemory)?.value || DEFAULT_SUBSYSTEM_PROMPTS.directMemory,
+    [LLM_SETTING_KEYS.promptBatchMemory]:
+      llmMap.get(LLM_SETTING_KEYS.promptBatchMemory)?.value || DEFAULT_SUBSYSTEM_PROMPTS.batchMemory,
+    [LLM_SETTING_KEYS.promptSoulCondensation]:
+      llmMap.get(LLM_SETTING_KEYS.promptSoulCondensation)?.value || DEFAULT_SUBSYSTEM_PROMPTS.soulCondensation,
+    [LLM_SETTING_KEYS.promptDynamicContext]:
+      llmMap.get(LLM_SETTING_KEYS.promptDynamicContext)?.value || DEFAULT_SUBSYSTEM_PROMPTS.dynamicContext,
+  };
+
+  const llmConfigNode = (
+    <LlmSettingsForm
+      enabled={llmEnabled}
+      apiUrl={llmApiUrl}
+      hasApiKey={Boolean(llmApiKey)}
+      model={llmModel}
+      reasoningEffort={llmReasoningEffort}
+      systemPrompt={llmSystemPrompt}
+      debtReminderPrompt={llmDebtReminderPrompt}
+      targetEnv={targetEnv}
+      aiDebtReminderEnabled={llmAiDebtReminderEnabled}
+    />
+  );
+
   return (
     <AdminShell active="ai">
       <div className="page-content ai-admin-page">
@@ -67,32 +94,11 @@ export default async function AiAdminPage() {
           </div>
         </header>
 
-        {/* Khối 1: Cấu hình kết nối & Tinh chỉnh Prompt trực tiếp */}
-        <section className="panel settings-integration-panel ai-config-panel">
-          <LlmSettingsForm
-            enabled={llmEnabled}
-            apiUrl={llmApiUrl}
-            hasApiKey={Boolean(llmApiKey)}
-            model={llmModel}
-            reasoningEffort={llmReasoningEffort}
-            systemPrompt={llmSystemPrompt}
-            debtReminderPrompt={llmDebtReminderPrompt}
-            targetEnv={targetEnv}
-            aiDebtReminderEnabled={llmAiDebtReminderEnabled}
-          />
-        </section>
-
-        {/* Khối 2: Tra cứu Kho Prompt Ký ức & Danh mục 15 Kỹ năng AI */}
-        <div className="settings-section-divider">
-          <h2>Kho Prompt Tự học & Danh mục 15 Kỹ năng AI</h2>
-          <p>
-            Xem chi tiết các System Instruction chạy ngầm (trích xuất ký ức, quét hội thoại, cô đọng tính cách) và phân quyền 15 Tool của bot.
-          </p>
-        </div>
-
-        <section className="ai-catalog-section">
-          <AiSkillsPromptViewer />
-        </section>
+        {/* 3 Top-level Segmented Tabs: Config, Prompts (Editable), Tools (Searchable) */}
+        <AiTabsContainer
+          llmConfigForm={llmConfigNode}
+          subsystemPrompts={subsystemPrompts}
+        />
       </div>
     </AdminShell>
   );

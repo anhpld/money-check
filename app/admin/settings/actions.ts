@@ -711,6 +711,73 @@ export async function saveLlmSettings(
   }
 }
 
+export async function saveSubsystemPrompt(
+  promptKey: string,
+  promptValue: string
+): Promise<{ status: "success" | "error"; message: string }> {
+  if (!(await isAdminAuthenticated())) {
+    return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  }
+
+  const cleanKey = promptKey.trim();
+  const cleanVal = promptValue.trim();
+  if (!cleanKey) {
+    return { status: "error", message: "Mã prompt không hợp lệ." };
+  }
+
+  try {
+    const prisma = getPrisma();
+    await prisma.setting.upsert({
+      where: {
+        type_key: {
+          type: LLM_SETTING_TYPE,
+          key: cleanKey,
+        },
+      },
+      create: {
+        type: LLM_SETTING_TYPE,
+        key: cleanKey,
+        value: cleanVal,
+        enabled: true,
+      },
+      update: {
+        value: cleanVal,
+        enabled: true,
+      },
+    });
+
+    revalidatePath("/admin/ai");
+    return { status: "success", message: "Đã lưu prompt thành công." };
+  } catch (error) {
+    console.error("Không thể lưu subsystem prompt:", error);
+    return { status: "error", message: "Lỗi hệ thống khi lưu prompt." };
+  }
+}
+
+export async function resetSubsystemPrompt(
+  promptKey: string
+): Promise<{ status: "success" | "error"; message: string }> {
+  if (!(await isAdminAuthenticated())) {
+    return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
+  }
+
+  try {
+    const prisma = getPrisma();
+    await prisma.setting.deleteMany({
+      where: {
+        type: LLM_SETTING_TYPE,
+        key: promptKey.trim(),
+      },
+    });
+
+    revalidatePath("/admin/ai");
+    return { status: "success", message: "Đã khôi phục prompt về mẫu chuẩn." };
+  } catch (error) {
+    console.error("Không thể khôi phục subsystem prompt:", error);
+    return { status: "error", message: "Lỗi hệ thống khi khôi phục prompt." };
+  }
+}
+
 export async function resetApplicationData(confirmation: string): Promise<ResetDataResult> {
   if (!(await isAdminAuthenticated())) return { status: "error", message: "Phiên đăng nhập đã hết hạn." };
   if (confirmation !== "RESET") return { status: "error", message: "Vui lòng nhập đúng RESET để xác nhận." };

@@ -29,6 +29,10 @@ export const LLM_SETTING_KEYS = {
   aiDebtReminderEnabled: "ai-debt-reminder-enabled",
   debtReminderPrompt: "debt-reminder-prompt",
   reasoningEffort: "reasoning-effort",
+  promptDirectMemory: "prompt-direct-memory",
+  promptBatchMemory: "prompt-batch-memory",
+  promptSoulCondensation: "prompt-soul-condensation",
+  promptDynamicContext: "prompt-dynamic-context",
 } as const;
 
 export const DEFAULT_LLM_SETTINGS = {
@@ -59,6 +63,64 @@ Yêu cầu:
 - BẮT BUỘC giữ nguyên chính xác cú pháp tag tên @[Họ và tên] (ví dụ: @[Nguyễn Tuấn Dương], @[Tùng Phạm]) của tất cả những người trong danh sách để hệ thống tag được vào Facebook.
 - Khéo léo nhắc anh em sớm chuyển khoản cho thủ quỹ.
 - Tuyệt đối không dùng định dạng Markdown (không dùng **, *, #), chỉ trả về duy nhất nội dung văn bản thuần.`,
+} as const;
+
+export const DEFAULT_SUBSYSTEM_PROMPTS = {
+  directMemory: `LƯU Ý CỐT LÕI: "Vũ Quang Bình" là tên BOT trợ lý ảo, KHÔNG PHẢI người thật trong nhóm!
+Người nói: {senderName}
+Tin nhắn: "{messageText}"
+Các sự việc 3 ngày qua ĐÃ LƯU của {senderName}: {existingFactsStr}
+
+Nhiệm vụ:
+1. "personality": Nhận diện nét TÍNH CÁCH / PHONG CÁCH ĂN NÓI dài hạn của {senderName} nếu câu nói này thể hiện rõ cá tính (ví dụ: hay cà khịa, thích đùa cợt, ăn nói bỗ bã sân cỏ thân thiết, hòa nhã...). Lưu ý: Trêu bot hay chửi đùa bot là văn hóa trêu chọc sân cỏ, không coi là xúc phạm hay xấu tính. Nếu chỉ là câu chào hỏi hoặc không bộc lộ cá tính rõ rệt, trả về null.
+2. "event": Trích xuất SỰ VIỆC TẠM THỜI / LỜI HỨA NGẮN HẠN (hạn 3 ngày) của {senderName}. LƯU Ý ĐẶC BIỆT:
+   - Chủ thể của sự việc là CHÍNH NGƯỜI NÓI ({senderName}), ví dụ khi {senderName} dặn "nhắc uống thuốc" nghĩa là "{senderName} cần uống thuốc", tuyệt đối KHÔNG ghi Vũ Quang Bình cần uống thuốc!
+   - NẾU SỰ VIỆC NÀY TRÙNG Ý HOẶC TƯƠNG ĐỒNG VỚI SỰ VIỆC ĐÃ LƯU Ở TRÊN, BẮT BUỘC TRẢ VỀ NULL (bỏ qua, không lưu lại).
+   - Nếu không có sự việc gì đáng nhớ, trả về null.
+
+Trả về JSON Object theo định dạng:
+{"personality": "Nét tính cách dưới 15 từ hoặc null", "event": "Sự việc ngắn hạn dưới 15 từ hoặc null"}
+Chỉ trả về JSON thuần túy, không markdown.`,
+
+  batchMemory: `LƯU Ý CỐT LÕI: "Vũ Quang Bình" là tên BOT trợ lý ảo, KHÔNG PHẢI thành viên người thật trong nhóm! Tuyệt đối không trích xuất tính cách hay sự việc về Vũ Quang Bình.
+Dưới đây là các tin nhắn trao đổi trong nhóm bóng đá FC Đông Đô:
+{transcript}
+
+Các sự việc 3 ngày qua ĐÃ ĐƯỢC GHI NHẬN trước đó:
+{knownFactsStr}
+
+Nhiệm vụ:
+1. "souls": Nhận diện TÍNH CÁCH / PHONG CÁCH GIAO TIẾP lâu dài của từng thành viên qua cách họ nói chuyện (ví dụ: hay cà khịa, thích trêu đùa, ăn nói bỗ bã sân cỏ thân thiết, nhiệt tình, trầm tính...).
+2. "episodes": Trích xuất SỰ VIỆC TẠM THỜI / LỜI HỨA NGẮN HẠN (hạn 3 ngày) của từng người (ví dụ: người đó cần uống thuốc, hứa nộp tiền, hứa thưởng tiền/khao, bận việc, đau chân nhẹ, vừa bay về delay, xin nghỉ trận tới...).
+LƯU Ý QUAN TRỌNG: Nếu sự việc trong các tin nhắn trên ĐÃ CÓ trong danh sách đã ghi nhận ở trên hoặc TRÙNG Ý / TƯƠNG ĐỒNG, BỎ QUA không trích xuất lại vào "episodes".
+
+Trả về JSON Object theo định dạng:
+{
+  "souls": [{"name": "Tên thành viên", "personality": "Nét tính cách dưới 15 từ"}],
+  "episodes": [{"name": "Tên thành viên", "fact": "Sự việc ngắn hạn dưới 15 từ"}]
+}
+Nếu không có, để mảng rỗng [].
+Chỉ trả về JSON thuần túy, không có markdown hay giải thích.`,
+
+  soulCondensation: `Hãy đúc kết nét tính cách và phong cách giao tiếp sau thành DUY NHẤT 1 câu súc tích dưới 20 từ, giữ đúng cá tính nổi bật nhất của anh em bóng đá sân cỏ, không lặp từ:
+"{currentSoul}. {newPersonality}"
+Chỉ trả về 1 câu thuần túy, không có ngoặc kép hay giải thích.`,
+
+  dynamicContext: `{systemPrompt}
+
+[Thông tin công nợ của người đang chat ({senderName})]:
+- Tổng nợ: {debtAmount} VNĐ (chưa tính tiền nước).
+- Các khoản chưa nộp: {unpaidItems}
+- Link thanh toán QR cá nhân: {qrPaymentUrl}
+
+[Tính cách & Phong cách giao tiếp (Soul) của {senderName}]:
+{userSoulPrompt}
+[Hồ sơ vị trí thi đấu chính thức]:
+{userProfile}
+
+[Bảng tin Sự việc & Kèo / Lời hứa 3 ngày qua của cả đội]:
+- [Hôm nay 26/09] Đức Thắng: Hứa tài trợ thùng nước tăng lực nếu thắng.
+- [25/09] Minh Đức: Đau nhẹ cổ chân, dự kiến ra sân hiệp 2.`
 } as const;
 
 
