@@ -7,7 +7,7 @@ export type UpcomingMatchData = {
   thoi_gian: string;
   san_bong: string;
   doi_thu: string;
-  mau_ao: string;
+  mau_ao?: string;
   ghi_chu: string;
   expiresAt: number;
   updatedAt: string;
@@ -83,7 +83,6 @@ export async function updateUpcomingMatchSchedule(formData: FormData) {
   const thoi_gian = (formData.get("thoi_gian") as string)?.trim();
   const san_bong = (formData.get("san_bong") as string)?.trim();
   const doi_thu = (formData.get("doi_thu") as string)?.trim() || "Đang chờ chốt đối thủ";
-  const mau_ao = (formData.get("mau_ao") as string)?.trim() || "Áo cam truyền thống";
   const ghi_chu = (formData.get("ghi_chu") as string)?.trim() || "";
 
   if (!thoi_gian || !san_bong) {
@@ -98,7 +97,6 @@ export async function updateUpcomingMatchSchedule(formData: FormData) {
       thoi_gian,
       san_bong,
       doi_thu,
-      mau_ao,
       ghi_chu,
       expiresAt,
       updatedAt: new Date().toISOString(),

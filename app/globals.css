@@ -26,12 +26,12 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.6; }
+html { scroll-behavior: smooth; max-width: 100%; overflow-x: clip; }
+body { margin: 0; max-width: 100%; overflow-x: clip; background: var(--cream); color: var(--ink); font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.6; }
 button, input, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
-.admin-shell { display: flex; min-height: 100vh; }
+.admin-shell { display: flex; min-height: 100vh; max-width: 100%; overflow-x: clip; }
 .mobile-admin-menu { display: none; }
 .mobile-user-list, .mobile-date-time { display: none; }
 
@@ -1530,8 +1530,10 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   border: 1px solid var(--line);
   border-left: 4px solid var(--brand);
   border-radius: 12px;
-  padding: 18px 20px;
+  padding: 16px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .match-clean-header {
@@ -1571,6 +1573,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .match-clean-expiry {
   font-size: 11.5px;
   color: #64748b;
+  word-break: break-word;
 }
 
 .match-clean-actions {
@@ -1581,9 +1584,11 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 
 .match-clean-actions .btn {
   font-size: 12px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 6px;
   font-weight: 600;
+  min-height: 32px;
+  cursor: pointer;
 }
 
 .btn-secondary {
@@ -1610,7 +1615,7 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 
 .match-clean-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px 20px;
   padding: 14px 0 10px;
 }
@@ -1618,7 +1623,8 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 .match-clean-col {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .match-clean-label {
@@ -1630,14 +1636,12 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
 }
 
 .match-clean-val {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--ink);
   font-weight: 650;
-  line-height: 1.35;
-}
-
-.match-clean-val.text-accent {
-  color: #b45309;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .match-clean-note {
@@ -1646,15 +1650,18 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 8px 12px;
-  font-size: 12.5px;
+  font-size: 12px;
   color: #334155;
   display: flex;
   gap: 6px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .match-clean-note-label {
   font-weight: 650;
   color: #0f172a;
+  flex-shrink: 0;
 }
 
 .match-clean-footer {
@@ -1687,6 +1694,40 @@ textarea.plain-input { min-height: 82px; resize: vertical; padding-top: 12px; li
   margin: 2px 0 0;
   font-size: 12px;
   color: #64748b;
+}
+
+@media (max-width: 680px) {
+  .match-clean-card {
+    padding: 14px 14px;
+    border-radius: 10px;
+  }
+  .match-clean-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .match-clean-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .match-clean-actions .btn {
+    text-align: center;
+    justify-content: center;
+    min-height: 38px;
+    font-size: 13px;
+  }
+  .match-clean-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 0 6px;
+  }
+  .match-schedule-dialog {
+    width: 100% !important;
+    padding: 20px 16px !important;
+    margin: 8px !important;
+  }
 }
 
 /* Modal Chốt / Sửa lịch thi đấu */

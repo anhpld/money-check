@@ -43,7 +43,6 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
             thoi_gian: (formData.get("thoi_gian") as string) || "",
             san_bong: (formData.get("san_bong") as string) || "",
             doi_thu: (formData.get("doi_thu") as string) || "Đang chờ chốt đối thủ",
-            mau_ao: (formData.get("mau_ao") as string) || "Áo cam truyền thống",
             ghi_chu: (formData.get("ghi_chu") as string) || "",
             expiresAt: Date.now() + 86400000,
             updatedAt: new Date().toISOString(),
@@ -129,11 +128,6 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
               <div className="match-clean-col">
                 <span className="match-clean-label">Đối thủ</span>
                 <strong className="match-clean-val">{matchData.doi_thu || "Chưa có"}</strong>
-              </div>
-
-              <div className="match-clean-col">
-                <span className="match-clean-label">Trang phục</span>
-                <strong className="match-clean-val text-accent">{matchData.mau_ao || "Áo cam"}</strong>
               </div>
             </div>
 
@@ -234,41 +228,28 @@ export function UpcomingMatchBanner({ initialSchedule }: Props) {
                   />
                 </div>
 
-                <div className="field-grid-2">
-                  <div className="field-block">
-                    <label htmlFor="doi_thu">Đối thủ</label>
-                    <input
-                      id="doi_thu"
-                      name="doi_thu"
-                      type="text"
-                      defaultValue={matchData?.doi_thu || ""}
-                      placeholder="VD: FC Viettel"
-                      className="input-text"
-                    />
-                  </div>
-
-                  <div className="field-block">
-                    <label htmlFor="mau_ao">Màu áo / Trang phục</label>
-                    <input
-                      id="mau_ao"
-                      name="mau_ao"
-                      type="text"
-                      defaultValue={matchData?.mau_ao || ""}
-                      placeholder="VD: Áo cam truyền thống"
-                      className="input-text"
-                    />
-                  </div>
+                <div className="field-block">
+                  <label htmlFor="doi_thu">Đội đối thủ</label>
+                  <input
+                    id="doi_thu"
+                    name="doi_thu"
+                    type="text"
+                    defaultValue={matchData?.doi_thu || ""}
+                    placeholder="VD: FC Viettel"
+                    className="input-text"
+                  />
                 </div>
 
                 <div className="field-block">
                   <label htmlFor="ghi_chu">Ghi chú thêm</label>
-                  <input
+                  <textarea
                     id="ghi_chu"
                     name="ghi_chu"
-                    type="text"
+                    rows={2}
                     defaultValue={matchData?.ghi_chu || ""}
-                    placeholder="VD: Có mặt trước 15 phút khởi động"
+                    placeholder="VD: Có mặt trước 15 phút khởi động, mang đủ bọc ống đồng"
                     className="input-text"
+                    style={{ resize: "vertical" }}
                   />
                 </div>
 
